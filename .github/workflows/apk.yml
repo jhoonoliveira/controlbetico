@@ -184,11 +184,10 @@ jobs:
             adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
             sleep 25
             adb exec-out screencap -p > ota-depois.png
-            adb shell uiautomator dump /sdcard/ui.xml
-            adb shell cat /sdcard/ui.xml > ui-ota.xml
             adb logcat -d > logcat-ota.txt
-            grep -o 'versão [0-9.]*' ui-ota.xml > ota.txt || true
+            echo "teste" > ota.txt
             grep -E "CB_|🔴|Downloading|ownload|next|Next" logcat-ota.txt | grep -v reportWebViewError | head -80 >> ota.txt || true
+            ls -la ota.txt
       - name: Conferir
         if: steps.ant.outputs.ok == 'sim'
         run: |
