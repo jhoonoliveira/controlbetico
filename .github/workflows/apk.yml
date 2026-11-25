@@ -95,6 +95,18 @@ jobs:
             logcat.txt
             resultado.txt
             erros-js.txt
+      - name: Resultado do teste
+        if: always()
+        run: |
+          cat resultado.txt || true
+          echo '--- erros JS ---'; cat erros-js.txt || true
+          echo '--- console do app ---'; grep -E "Capacitor|chromium|AndroidRuntime" logcat.txt | tail -120 || true
+      - name: Guardar telas no ramo testes
+        if: always()
+        run: |
+          mkdir pub && cp *.png resultado.txt pub/ 2>/dev/null; cd pub
+          git init -q -b testes && git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
+          git add . && git commit -qm "telas do teste ${GITHUB_RUN_NUMBER}" && git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" testes
   publicar:
     needs: [build, teste]
     runs-on: ubuntu-latest
