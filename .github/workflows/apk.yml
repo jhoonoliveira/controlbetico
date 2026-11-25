@@ -48,6 +48,9 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />#' $M
           grep -n "permission" $M
+          ST=android/app/src/main/res/values/styles.xml
+          sed -i 's#<style name="AppTheme.NoActionBar" parent="\([^"]*\)">#<style name="AppTheme.NoActionBar" parent="\1">\n        <item name="android:statusBarColor">\#0F1115</item>\n        <item name="android:navigationBarColor">\#181B22</item>#' $ST
+          cat $ST
           G=android/app/build.gradle
           sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"${VERSAO}\"/" $G
           grep -n "versionCode\|versionName" $G
@@ -154,7 +157,7 @@ jobs:
           cp scripts/teste.sh .
           ANT=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName -q '.[].tagName' | grep -v "v${{ needs.build.outputs.versao }}$" | head -1)
           echo "anterior=$ANT"
-          if [ -n "$ANT" ] && gh release download "$ANT" --repo "$GITHUB_REPOSITORY" -p atualizacao.json -p ControlBetico.apk; then echo "ok=sim" >> $GITHUB_OUTPUT; else echo "ok=nao" >> $GITHUB_OUTPUT; echo "Versão anterior sem atualização automática — pulando."; fi
+          if [ -n "$ANT" ] && gh release download "$ANT" --repo "$GITHUB_REPOSITORY" -p atualizacao.json -p ControlBetico.apk && [ -f atualizacao.json ]; then echo "ok=sim" >> $GITHUB_OUTPUT; else echo "ok=nao" >> $GITHUB_OUTPUT; echo "Versão anterior sem atualização automática — pulando."; fi
       - name: Habilitar KVM
         if: steps.ant.outputs.ok == 'sim'
         run: |
