@@ -1,0 +1,7 @@
+node_modules/
+android/
+*.keystore
+www/ocr/
+www/vendor/
+www/plugins.js
+assets/
