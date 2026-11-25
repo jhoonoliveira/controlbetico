@@ -22,5 +22,6 @@
       "autoDeleteFailed": true,
       "autoDeletePrevious": true
     }
-  }
+  },
+  "loggingBehavior": "production"
 }
