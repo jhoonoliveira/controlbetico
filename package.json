@@ -14,14 +14,15 @@
     "@capacitor/core": "8.6.2",
     "@capacitor/filesystem": "8.1.5",
     "@capacitor/share": "8.0.3",
-    "@capgo/capacitor-social-login": "8.7.13"
+    "@capgo/capacitor-social-login": "8.7.13",
+    "@capgo/capacitor-updater": "8.54.2"
   },
   "devDependencies": {
     "@capacitor/assets": "4.0.0",
-    "esbuild": "0.28.2",
+    "@tesseract.js-data/por": "1.0.0",
     "@zxing/browser": "0.1.5",
+    "esbuild": "0.28.2",
     "tesseract.js": "5.1.1",
-    "tesseract.js-core": "5.1.1",
-    "@tesseract.js-data/por": "1.0.0"
+    "tesseract.js-core": "5.1.1"
   }
 }
