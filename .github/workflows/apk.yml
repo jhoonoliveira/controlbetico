@@ -5,6 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: write
+concurrency:
+  group: gerar-apk
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,7 +27,19 @@ jobs:
           echo "VERSAO=$V" >> $GITHUB_ENV
       - run: npm ci --no-audit --no-fund
       - name: Preparar arquivos (OCR, leitor, ícones)
-        run: npm run bundle && node scripts/prepara.cjs
+        run: |
+          npm run bundle && node scripts/prepara.cjs
+          NATIVO=$(cat nativo.txt | tr -d ' \n')
+          echo "NATIVO=$NATIVO" >> $GITHUB_ENV
+          echo "window.CBVER={versao:'${VERSAO}',nativo:${NATIVO}};" > www/versao.js
+          cat www/versao.js
+      - name: Pacote de atualização automática
+        run: |
+          (cd www && zip -qr -9 ../bundle.zip .)
+          ls -la bundle.zip
+          R="https://github.com/${GITHUB_REPOSITORY}/releases"
+          printf '{"versao":"%s","nativo":%s,"zip":"%s/download/v%s/bundle.zip","apk":"%s/latest/download/ControlBetico.apk"}\n' "$VERSAO" "$NATIVO" "$R" "$VERSAO" "$R" > atualizacao.json
+          cat atualizacao.json
       - name: Criar projeto Android
         run: |
           npx cap add android
@@ -55,13 +70,21 @@ jobs:
           $BT/apksigner verify --print-certs ControlBetico.apk | grep -i "SHA-1"
           rm chave.keystore
       - uses: actions/upload-artifact@v4
-        with: { name: ControlBetico-apk, path: ControlBetico.apk }
+        with:
+          name: ControlBetico-apk
+          path: |
+            ControlBetico.apk
+            bundle.zip
+            atualizacao.json
   teste:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: scripts }
       - uses: actions/download-artifact@v4
         with: { name: ControlBetico-apk }
+      - run: cp scripts/teste.sh .
       - name: Habilitar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -79,9 +102,10 @@ jobs:
             adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
             sleep 25
             adb exec-out screencap -p > tela1-login.png
-            adb shell input tap 540 1500 || true
-            sleep 6
-            adb exec-out screencap -p > tela2-apos-toque.png
+            bash teste.sh "Usar sem conta Google" tela2-sem-conta.png
+            bash teste.sh "OK" tela3-confirmou.png
+            bash teste.sh "Agora não" tela4-inicio.png
+            bash teste.sh "Ajustes" tela5-ajustes.png
             adb logcat -d > logcat.txt
             adb shell pidof com.controlbetico.app && echo "APP_RODANDO=sim" > resultado.txt || echo "APP_RODANDO=nao" > resultado.txt
             grep -c "FATAL EXCEPTION" logcat.txt >> resultado.txt || true
@@ -92,19 +116,20 @@ jobs:
           name: teste-emulador
           path: |
             *.png
+            passos.txt
             logcat.txt
             resultado.txt
             erros-js.txt
       - name: Resultado do teste
         if: always()
         run: |
-          cat resultado.txt || true
+          cat resultado.txt passos.txt || true
           echo '--- erros JS ---'; cat erros-js.txt || true
           echo '--- console do app ---'; grep -E "Capacitor|chromium|AndroidRuntime" logcat.txt | tail -120 || true
       - name: Guardar telas no ramo testes
         if: always()
         run: |
-          mkdir pub && cp *.png resultado.txt pub/ 2>/dev/null; cd pub
+          mkdir pub && cp *.png resultado.txt passos.txt pub/ 2>/dev/null; cd pub
           git init -q -b testes && git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
           git add . && git commit -qm "telas do teste ${GITHUB_RUN_NUMBER}" && git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" testes
   publicar:
@@ -115,4 +140,55 @@ jobs:
         with: { name: ControlBetico-apk }
       - name: Publicar versão
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: gh release create "v${{ needs.build.outputs.versao }}" ControlBetico.apk --repo "$GITHUB_REPOSITORY" --title "ControlBético ${{ needs.build.outputs.versao }}" --notes "APK gerado automaticamente."
+        run: gh release create "v${{ needs.build.outputs.versao }}" ControlBetico.apk bundle.zip atualizacao.json --repo "$GITHUB_REPOSITORY" --title "ControlBético ${{ needs.build.outputs.versao }}" --notes "APK gerado automaticamente."
+  teste-atualizacao:
+    needs: [build, publicar]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: scripts }
+      - name: Baixar a versão anterior (se ela já tiver atualização automática)
+        id: ant
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          cp scripts/teste.sh .
+          ANT=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 5 --json tagName -q '.[].tagName' | grep -v "v${{ needs.build.outputs.versao }}$" | head -1)
+          echo "anterior=$ANT"
+          if [ -n "$ANT" ] && gh release download "$ANT" --repo "$GITHUB_REPOSITORY" -p atualizacao.json -p ControlBetico.apk; then echo "ok=sim" >> $GITHUB_OUTPUT; else echo "ok=nao" >> $GITHUB_OUTPUT; echo "Versão anterior sem atualização automática — pulando."; fi
+      - name: Habilitar KVM
+        if: steps.ant.outputs.ok == 'sim'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Instalar a versão anterior e ver se ela se atualiza sozinha
+        if: steps.ant.outputs.ok == 'sim'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r ControlBetico.apk
+            adb logcat -c
+            adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
+            sleep 75
+            adb shell am force-stop com.controlbetico.app
+            sleep 3
+            adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb exec-out screencap -p > ota-depois.png
+            adb logcat -d > logcat-ota.txt
+            grep -o "CB_VERSAO=[0-9.]*\|CB_UPD[^\"]*" logcat-ota.txt | head -20 | tee ota.txt
+      - name: Conferir
+        if: steps.ant.outputs.ok == 'sim'
+        run: |
+          cat ota.txt
+          grep -q "CB_VERSAO=${{ needs.build.outputs.versao }}" ota.txt && echo "ATUALIZOU_SOZINHO=sim" | tee -a ota.txt || { echo "ATUALIZOU_SOZINHO=nao" | tee -a ota.txt; exit 1; }
+      - name: Guardar resultado no ramo testes
+        if: always() && steps.ant.outputs.ok == 'sim'
+        run: |
+          git fetch -q origin testes && git checkout -q -B testes origin/testes || git checkout -q --orphan testes
+          mkdir -p ota && cp ota.txt ota-depois.png ota/ 2>/dev/null || true
+          git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
+          git add ota && git commit -qm "teste de atualização ${GITHUB_RUN_NUMBER}" && git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" HEAD:testes || true
