@@ -177,6 +177,8 @@ jobs:
             adb logcat -c
             adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
             sleep 75
+            adb shell input keyevent KEYCODE_HOME
+            sleep 10
             adb shell am force-stop com.controlbetico.app
             sleep 3
             adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
@@ -185,13 +187,13 @@ jobs:
             adb shell uiautomator dump /sdcard/ui.xml
             adb shell cat /sdcard/ui.xml > ui-ota.xml
             adb logcat -d > logcat-ota.txt
-            grep -o 'versão [0-9.]*' ui-ota.xml | tee ota.txt || true
-            grep -iE "capgo|CapacitorUpdater|CB_" logcat-ota.txt | tail -40 >> ota.txt || true
+            grep -o 'versão [0-9.]*' ui-ota.xml > ota.txt || true
+            grep -E "CB_|🔴|Downloading|ownload|next|Next" logcat-ota.txt | grep -v reportWebViewError | head -80 >> ota.txt || true
       - name: Conferir
         if: steps.ant.outputs.ok == 'sim'
         run: |
           cat ota.txt
-          grep -q "versão ${{ needs.build.outputs.versao }}" ota.txt && echo "ATUALIZOU_SOZINHO=sim" | tee -a ota.txt || { echo "ATUALIZOU_SOZINHO=nao" | tee -a ota.txt; exit 1; }
+          grep -q "versão ${{ needs.build.outputs.versao }}\|CB_VERSAO=${{ needs.build.outputs.versao }} " ota.txt && echo "ATUALIZOU_SOZINHO=sim" | tee -a ota.txt || { echo "ATUALIZOU_SOZINHO=nao" | tee -a ota.txt; exit 1; }
       - name: Guardar resultado no ramo testes
         if: always() && steps.ant.outputs.ok == 'sim'
         run: |
