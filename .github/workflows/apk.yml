@@ -38,7 +38,8 @@ jobs:
           (cd www && zip -qr -9 ../bundle.zip .)
           ls -la bundle.zip
           R="https://github.com/${GITHUB_REPOSITORY}/releases"
-          printf '{"versao":"%s","nativo":%s,"zip":"%s/download/v%s/bundle.zip","apk":"%s/latest/download/ControlBetico.apk"}\n' "$VERSAO" "$NATIVO" "$R" "$VERSAO" "$R" > atualizacao.json
+          SHA=$(sha256sum bundle.zip | cut -d' ' -f1)
+          printf '{"versao":"%s","nativo":%s,"zip":"%s/download/v%s/bundle.zip","sha256":"%s","apk":"%s/latest/download/ControlBetico.apk"}\n' "$VERSAO" "$NATIVO" "$R" "$VERSAO" "$SHA" "$R" > atualizacao.json
           cat atualizacao.json
       - name: Criar projeto Android
         run: |
