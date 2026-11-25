@@ -1416,7 +1416,7 @@ async function verificaAtualizacao(manual){if(!NAT||!CBN.Updater||_updRodando)re
     const b=await CBN.Updater.download({url:u.zip,version:u.versao,checksum:u.sha256});
     console.log('CB_UPD baixado '+b.id+' '+b.version);
     if(manual){toast('Atualizando…');setTimeout(()=>CBN.Updater.set({id:b.id}),700);return;}
-    await CBN.Updater.next({id:b.id});localStorage.setItem('cb_upd_pronta',u.versao);
+    await CBN.Updater.next({id:b.id});localStorage.setItem('cb_upd_pronta',u.versao);localStorage.setItem('cb_upd_id',b.id);
     toast('✓ Atualização '+u.versao+' baixada — entra na próxima vez que abrir o app');}
   catch(e){console.log('CB_UPD_ERRO '+(e&&e.message||e));if(manual)toast('Não consegui verificar agora. Tente mais tarde.');}
   finally{_updRodando=false;}}
@@ -1434,7 +1434,10 @@ function iniciaAtualizacao(){if(!NAT||!CBN.Updater)return;
   try{CBN.Updater.notifyAppReady();}catch(e){}
   console.log('CB_VERSAO='+VER.versao+' nativo='+VER.nativo);
   const vista=localStorage.getItem('cb_ver_vista');if(vista&&vista!==VER.versao&&cmpVer(VER.versao,vista)>0)setTimeout(()=>toast('✅ App atualizado para a versão '+VER.versao),1200);
-  localStorage.setItem('cb_ver_vista',VER.versao);if(localStorage.getItem('cb_upd_pronta')&&cmpVer(localStorage.getItem('cb_upd_pronta'),VER.versao)<=0)localStorage.removeItem('cb_upd_pronta');
+  localStorage.setItem('cb_ver_vista',VER.versao);
+  const pr=localStorage.getItem('cb_upd_pronta'),pid=localStorage.getItem('cb_upd_id');
+  if(pr&&cmpVer(pr,VER.versao)<=0){localStorage.removeItem('cb_upd_pronta');localStorage.removeItem('cb_upd_id');}
+  else if(pr&&pid&&!localStorage.getItem('cb_upd_tentou_'+pr)){localStorage.setItem('cb_upd_tentou_'+pr,'1');console.log('CB_UPD aplicando '+pr);CBN.Updater.set({id:pid}).catch(e=>console.log('CB_UPD_ERRO set '+(e&&e.message||e)));return;}
   setTimeout(()=>verificaAtualizacao(false),5000);
   CBN.App.addListener('resume',()=>verificaAtualizacao(false));}
 
