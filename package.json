@@ -1,0 +1,27 @@
+{
+  "name": "controlbetico",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ControlBético — controle de glicemia, carboidratos e insulina",
+  "scripts": {
+    "bundle": "esbuild src/plugins-entry.js --bundle --format=iife --minify --outfile=www/plugins.js"
+  },
+  "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "10.0.0",
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/cli": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3",
+    "@capgo/capacitor-social-login": "8.7.13"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "4.0.0",
+    "esbuild": "0.28.2",
+    "@zxing/browser": "0.1.5",
+    "tesseract.js": "5.1.1",
+    "tesseract.js-core": "5.1.1",
+    "@tesseract.js-data/por": "1.0.0"
+  }
+}
