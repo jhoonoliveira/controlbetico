@@ -1413,7 +1413,7 @@ async function verificaAtualizacao(manual){if(!NAT||!CBN.Updater||_updRodando)re
     if(num(u.nativo)>num(VER.nativo)){avisoApk(u,manual);return;}
     if(cmpVer(u.versao,VER.versao)<=0){if(manual)toast('✓ Você já está na versão mais recente ('+VER.versao+')');return;}
     if(manual)toast('Baixando a versão '+u.versao+'…');
-    const b=await CBN.Updater.download({url:u.zip,version:u.versao});
+    const b=await CBN.Updater.download({url:u.zip,version:u.versao,checksum:u.sha256});
     console.log('CB_UPD baixado '+b.id+' '+b.version);
     if(manual){toast('Atualizando…');setTimeout(()=>CBN.Updater.set({id:b.id}),700);return;}
     await CBN.Updater.next({id:b.id});localStorage.setItem('cb_upd_pronta',u.versao);
