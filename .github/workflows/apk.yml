@@ -185,8 +185,8 @@ jobs:
             sleep 25
             adb exec-out screencap -p > ota-depois.png
             adb logcat -d > logcat-ota.txt
-            echo "teste" > ota.txt
-            grep -E "CB_|🔴|Downloading|ownload|next|Next" logcat-ota.txt | grep -v reportWebViewError | head -80 >> ota.txt || true
+            grep -a "CB_VERSAO=\|CB_UPD" logcat-ota.txt | sed 's/.*Msg: //' > ota.txt || true
+            grep -a "CapgoUpdater: 🔴" logcat-ota.txt | head -20 >> ota.txt || true
             ls -la ota.txt
       - name: Conferir
         if: steps.ant.outputs.ok == 'sim'
