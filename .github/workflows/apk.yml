@@ -181,17 +181,21 @@ jobs:
             adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
             sleep 25
             adb exec-out screencap -p > ota-depois.png
+            adb shell uiautomator dump /sdcard/ui.xml
+            adb shell cat /sdcard/ui.xml > ui-ota.xml
             adb logcat -d > logcat-ota.txt
-            grep -o "CB_VERSAO=[0-9.]*\|CB_UPD[^\"]*" logcat-ota.txt | head -20 | tee ota.txt
+            grep -o 'versão [0-9.]*' ui-ota.xml | tee ota.txt || true
+            grep -iE "capgo|CapacitorUpdater|CB_" logcat-ota.txt | tail -40 >> ota.txt || true
       - name: Conferir
         if: steps.ant.outputs.ok == 'sim'
         run: |
           cat ota.txt
-          grep -q "CB_VERSAO=${{ needs.build.outputs.versao }}" ota.txt && echo "ATUALIZOU_SOZINHO=sim" | tee -a ota.txt || { echo "ATUALIZOU_SOZINHO=nao" | tee -a ota.txt; exit 1; }
+          grep -q "versão ${{ needs.build.outputs.versao }}" ota.txt && echo "ATUALIZOU_SOZINHO=sim" | tee -a ota.txt || { echo "ATUALIZOU_SOZINHO=nao" | tee -a ota.txt; exit 1; }
       - name: Guardar resultado no ramo testes
         if: always() && steps.ant.outputs.ok == 'sim'
         run: |
-          git fetch -q origin testes && git checkout -q -B testes origin/testes || git checkout -q --orphan testes
-          mkdir -p ota && cp ota.txt ota-depois.png ota/ 2>/dev/null || true
-          git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
-          git add ota && git commit -qm "teste de atualização ${GITHUB_RUN_NUMBER}" && git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" HEAD:testes || true
+          U="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}"
+          git clone -q --depth 1 -b testes "$U" t || { mkdir -p t && git -C t init -q -b testes && git -C t remote add origin "$U"; }
+          mkdir -p t/ota && cp ota.txt ota-depois.png t/ota/ 2>/dev/null || true
+          cd t && git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
+          git add -A && git commit -qm "teste de atualização ${GITHUB_RUN_NUMBER}" && git push -q origin HEAD:testes || true
