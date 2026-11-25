@@ -1,0 +1,106 @@
+name: Gerar APK ControlBético
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      versao: ${{ steps.ver.outputs.versao }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - name: Versão
+        id: ver
+        run: |
+          V="1.0.${GITHUB_RUN_NUMBER}"
+          echo "versao=$V" >> $GITHUB_OUTPUT
+          echo "VERSAO=$V" >> $GITHUB_ENV
+      - run: npm ci --no-audit --no-fund
+      - name: Preparar arquivos (OCR, leitor, ícones)
+        run: npm run bundle && node scripts/prepara.cjs
+      - name: Criar projeto Android
+        run: |
+          npx cap add android
+          mkdir -p android/app/src/main/java/com/controlbetico/app
+          cp android-src/MainActivity.java android/app/src/main/java/com/controlbetico/app/MainActivity.java
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />#' $M
+          grep -n "permission" $M
+          G=android/app/build.gradle
+          sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"${VERSAO}\"/" $G
+          grep -n "versionCode\|versionName" $G
+      - name: Ícones e tela de abertura
+        run: npx capacitor-assets generate --android --iconBackgroundColor '#1d4ed8' --iconBackgroundColorDark '#1d4ed8' --splashBackgroundColor '#1d4ed8' --splashBackgroundColorDark '#0f1115'
+      - run: npx cap sync android
+      - name: Compilar
+        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Assinar
+        env:
+          CHAVE_BASE64: ${{ secrets.CHAVE_BASE64 }}
+          SENHA_CHAVE: ${{ secrets.SENHA_CHAVE }}
+        run: |
+          echo "$CHAVE_BASE64" | base64 -d > chave.keystore
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          IN=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          $BT/zipalign -p -f 4 "$IN" alinhado.apk
+          $BT/apksigner sign --ks chave.keystore --ks-key-alias controlbetico --ks-pass env:SENHA_CHAVE --key-pass env:SENHA_CHAVE --out ControlBetico.apk alinhado.apk
+          $BT/apksigner verify --print-certs ControlBetico.apk | grep -i "SHA-1"
+          rm chave.keystore
+      - uses: actions/upload-artifact@v4
+        with: { name: ControlBetico-apk, path: ControlBetico.apk }
+  teste:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: ControlBetico-apk }
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Testar no emulador Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r ControlBetico.apk
+            adb logcat -c
+            adb shell monkey -p com.controlbetico.app -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb exec-out screencap -p > tela1-login.png
+            adb shell input tap 540 1500 || true
+            sleep 6
+            adb exec-out screencap -p > tela2-apos-toque.png
+            adb logcat -d > logcat.txt
+            adb shell pidof com.controlbetico.app && echo "APP_RODANDO=sim" > resultado.txt || echo "APP_RODANDO=nao" > resultado.txt
+            grep -c "FATAL EXCEPTION" logcat.txt >> resultado.txt || true
+            grep -i "Console\|chromium" logcat.txt | grep -i "error\|uncaught" | head -50 > erros-js.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teste-emulador
+          path: |
+            *.png
+            logcat.txt
+            resultado.txt
+            erros-js.txt
+  publicar:
+    needs: [build, teste]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: ControlBetico-apk }
+      - name: Publicar versão
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: gh release create "v${{ needs.build.outputs.versao }}" ControlBetico.apk --repo "$GITHUB_REPOSITORY" --title "ControlBético ${{ needs.build.outputs.versao }}" --notes "APK gerado automaticamente."
