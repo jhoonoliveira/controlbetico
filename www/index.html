@@ -1245,6 +1245,7 @@ const NAT=!!(window.CBN&&CBN.Capacitor&&CBN.Capacitor.isNativePlatform&&CBN.Capa
 const GOOGLE_WEB_CLIENT='331455524402-50vps232ccirmiade126u2tdpegv9q39.apps.googleusercontent.com';
 const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file',PASTA_DRIVE='ControlBético';
 let _tok=null,_tokExp=0,_glInit=false,_bloqueado=false,_bgDesde=0;
+const androidVer=()=>{const m=navigator.userAgent.match(/Android (\d+)/);return m?Number(m[1]):0;};
 const temGoogle=()=>!!(S.conta&&!S.conta.semConta&&S.conta.email);
 
 // ---------- utilidades de tela cheia ----------
@@ -1359,7 +1360,7 @@ async function compartilhaArquivo(nome,conteudo,tipo){const F=CBN.Filesystem;let
 // ---------- integração com o app ----------
 function iniciaNativo(){if(!NAT)return;
   iniciaAtualizacao();
-  if(CBN.SystemBars){const _ap=aplicaTema;aplicaTema=function(){_ap();try{CBN.SystemBars.setStyle({style:S.config.tema==='claro'?'LIGHT':'DARK'});}catch(e){}};aplicaTema();}
+  if(CBN.SystemBars){const _ap=aplicaTema;aplicaTema=function(){_ap();try{CBN.SystemBars.setStyle({style:(S.config.tema==='claro'&&androidVer()>=15)?'LIGHT':'DARK'});}catch(e){}};aplicaTema();}
   // arquivos: troca downloads por compartilhar
   baixar=(nome,conteudo,tipo)=>compartilhaArquivo(nome,conteudo,tipo);
   exportXLSX=function(){compartilhaArquivo('controlbetico-'+diaKey(Date.now())+'.xlsx',gerarXLSX(HP===1?1:HP));};
