@@ -6,7 +6,8 @@ cp(nm+'tesseract.js/dist/tesseract.min.js','www/ocr/tesseract.min.js');
 cp(nm+'tesseract.js/dist/worker.min.js','www/ocr/worker.min.js');
 cp(nm+'tesseract.js-core/tesseract-core-lstm.wasm.js','www/ocr/core/tesseract-core-lstm.wasm.js');
 cp(nm+'tesseract.js-core/tesseract-core-simd-lstm.wasm.js','www/ocr/core/tesseract-core-simd-lstm.wasm.js');
-cp(nm+'@tesseract.js-data/por/4.0.0_best_int/por.traineddata.gz','www/ocr/lang/por.traineddata.gz');
+// o Android não empacota bem arquivos .gz nos assets: grava descompactado
+fs.mkdirSync('www/ocr/lang',{recursive:true});fs.writeFileSync('www/ocr/lang/por.traineddata',require('zlib').gunzipSync(fs.readFileSync(nm+'@tesseract.js-data/por/4.0.0_best_int/por.traineddata.gz')));console.log('gerado www/ocr/lang/por.traineddata');
 cp(nm+'@zxing/browser/umd/zxing-browser.min.js','www/vendor/zxing-browser.min.js');
 const sharp=require('sharp');
 const D="M50 13 C50 13 24 43 24 61 A26 26 0 0 0 76 61 C76 43 50 13 50 13Z";
