@@ -20,7 +20,7 @@ PY
 )
   if [ -n "$B" ]; then
     Y=${B#* }
-    if [ "$Y" -gt $((H*78/100)) ] && [ "$Y" != "$YANT" ]; then echo "'$TXT' muito embaixo ($B), rolando"; YANT=$Y; adb shell input swipe 540 $((H*70/100)) 540 $((H*35/100)) 500; sleep 2; B=""; continue; fi
+    if [ "$Y" -gt $((H*78/100)) ] && [ "$Y" != "$YANT" ]; then echo "'$TXT' muito embaixo ($B), rolando"; YANT=$Y; adb shell input swipe 540 $((H*70/100)) 540 $((H*35/100)) 500; sleep 4; B=""; continue; fi
     echo "tocando '$TXT' em $B"; adb shell input tap $B; break
   fi
   echo "'$TXT' não achado (tentativa $i)"; [ $i -ge 2 ] && adb shell input swipe 540 $((H*70/100)) 540 $((H*40/100)) 400; sleep 3
