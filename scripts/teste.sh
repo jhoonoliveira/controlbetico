@@ -1,5 +1,5 @@
 #!/bin/bash
-# Uso: teste.sh "texto do botão" arquivo.png [espera]  — acha o texto na tela (rolando se preciso), toca e tira foto
+# Uso: teste.sh "texto do botão" arquivo.png [espera] [toques]  — acha o texto na tela (rolando se preciso), toca e tira foto
 TXT="$1"; OUT="$2"
 SZ=$(adb shell wm size | tail -1 | grep -o '[0-9]*x[0-9]*'); W=${SZ%x*}; H=${SZ#*x}; [ -z "$H" ] && { W=1080; H=1920; }; X=$((W/2)); echo "tela ${W}x${H}"
 B=""; YANT=""
@@ -21,7 +21,7 @@ PY
   if [ -n "$B" ]; then
     Y=${B#* }
     if [ "$Y" -gt $((H*78/100)) ] && [ "$Y" != "$YANT" ]; then echo "'$TXT' muito embaixo ($B), rolando"; YANT=$Y; adb shell input swipe $X $((H*70/100)) $X $((H*35/100)) 500; sleep 4; B=""; continue; fi
-    echo "tocando '$TXT' em $B"; adb shell input tap $B; break
+    echo "tocando '$TXT' em $B (${4:-1}x)"; for k in $(seq 1 ${4:-1}); do adb shell input tap $B; sleep 0.3; done; break
   fi
   echo "'$TXT' não achado (tentativa $i)"; [ $i -ge 2 ] && adb shell input swipe $X $((H*70/100)) $X $((H*40/100)) 400; sleep 3
 done
