@@ -749,7 +749,7 @@ function carregaTess(){if(window.Tesseract)return Promise.resolve();if(_tessP)re
   _tessP=new Promise((res,rej)=>{const s=document.createElement('script');s.src=window.OCR_LOCAL?ocrLoc('ocr/tesseract.min.js'):OCR_CDN+'tesseract.js@'+OCR_V+'/dist/tesseract.min.js';
     s.onload=res;s.onerror=()=>{_tessP=null;s.remove();rej(new Error('rede'));};document.head.appendChild(s);});return _tessP;}
 async function workerOCR(){await carregaTess();if(_ocrWorker)return _ocrWorker;
-  let w;try{w=await comPrazo(new Promise((res,rej)=>{_ocrErro=rej;Tesseract.createWorker('por',1,window.OCR_LOCAL?{workerPath:ocrLoc('ocr/worker.min.js'),corePath:ocrLoc('ocr/core'),langPath:ocrLoc('ocr/lang'),cacheMethod:'none',workerBlobURL:false,errorHandler:e=>{console.log('CB_OCR_ERRO '+(e&&e.message||e));_ocrErro&&_ocrErro(e);},
+  let w;try{w=await comPrazo(new Promise((res,rej)=>{_ocrErro=rej;Tesseract.createWorker('por',1,window.OCR_LOCAL?{workerPath:ocrLoc('ocr/worker.min.js'),corePath:ocrLoc('ocr/core'),langPath:ocrLoc('ocr/lang'),cacheMethod:'none',workerBlobURL:false,gzip:false,errorHandler:e=>{console.log('CB_OCR_ERRO '+(e&&e.message||e));_ocrErro&&_ocrErro(e);},
     logger:m=>{if(_ocrProg)_ocrProg(m);}}:{workerPath:OCR_CDN+'tesseract.js@'+OCR_V+'/dist/worker.min.js',
     corePath:OCR_CDN+'tesseract.js-core@'+OCR_V,langPath:OCR_CDN+'@tesseract.js-data/por/4.0.0_best_int',
     logger:m=>{if(_ocrProg)_ocrProg(m);}}).then(res,rej);}),90000,'tempo');}catch(e){_ocrErro=null;console.log('CB_OCR_ERRO criar '+(e&&e.message||e));throw e;}
