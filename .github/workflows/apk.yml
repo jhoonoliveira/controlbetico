@@ -110,6 +110,8 @@ jobs:
             bash teste.sh "OK" tela3-confirmou.png
             bash teste.sh "Agora não" tela4-inicio.png
             bash teste.sh "Ajustes" tela5-ajustes.png
+            bash teste.sh "Atualizações" tela6-atualizacoes.png
+            bash teste.sh "Testar leitor de rótulo" tela7-teste-leitor.png 50
             adb logcat -d > logcat.txt
             adb shell pidof com.controlbetico.app && echo "APP_RODANDO=sim" > resultado.txt || echo "APP_RODANDO=nao" > resultado.txt
             grep -c "FATAL EXCEPTION" logcat.txt >> resultado.txt || true
@@ -129,11 +131,13 @@ jobs:
         run: |
           cat resultado.txt passos.txt || true
           echo '--- erros JS ---'; cat erros-js.txt || true
+          echo '--- leitor de rótulo ---'; grep -a "CB_OCR" logcat.txt | sed 's/.*Msg: //' | tee ocr.txt || true
+          grep -q "Leitor OK" ocr.txt && echo "LEITOR=ok" || echo "LEITOR=falhou"
           echo '--- console do app ---'; grep -E "Capacitor|chromium|AndroidRuntime" logcat.txt | tail -120 || true
       - name: Guardar telas no ramo testes
         if: always()
         run: |
-          mkdir pub && cp *.png resultado.txt passos.txt pub/ 2>/dev/null; cd pub
+          mkdir pub && cp *.png resultado.txt passos.txt ocr.txt pub/ 2>/dev/null; cd pub
           git init -q -b testes && git config user.name "teste-bot" && git config user.email "bot@users.noreply.github.com"
           git add . && git commit -qm "telas do teste ${GITHUB_RUN_NUMBER}" && git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}" testes
   publicar:
