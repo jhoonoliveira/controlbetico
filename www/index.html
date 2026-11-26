@@ -365,23 +365,18 @@ function alertasEstoque(){let h='';const f=num(S.fitas);
 let D=null;
 function novoDraft(){const ts=Date.now();return{ts,refeicao:refeicaoDe(ts),glic:'',itens:[],extra:'',doses:{},on:{},editados:{},nota:'',tags:[]};}
 const itC=it=>it.c100*it.gMed*it.q/100;
-const itTxt=it=>`${fmt(it.q,2)} × ${it.medida} (${fmt(it.gMed*it.q)} ${it.un})`;
+const itTxt=it=>(it.gMed===1&&(it.medida==='g'||it.medida==='ml'))?`${fmt(it.q,1)} ${it.medida}`:`${fmt(it.q,2)} × ${it.medida} (${fmt(it.gMed*it.q)} ${it.un})`;
 function normItem(i){if(i.gMed)return{...i};return{nome:i.nome,gMed:i.g||1,c100:i.g?i.carbs/i.g*100:0,un:'g',medida:i.txt||'porção',q:1};}
 const carbsD=()=>D.itens.reduce((a,i)=>a+itC(i),0)+(num(D.extra)||0);
 const bolusCalc=()=>S.insulinas.find(i=>i.ativa&&i.tipo==='bolus');
 function addFood(fid,q=1){const f=foodById(fid);const ex=D.itens.find(i=>i.fid===fid);
   if(ex)ex.q+=q;else D.itens.push({fid:f.id,nome:f.nome,gMed:f.gMed,c100:f.c100,un:f.un,medida:f.medida,q});
   const s=$('#cBusca');if(s){s.value='';$('#cRes2').innerHTML='';}updCalc();toast(f.nome+' adicionado');}
-function editItem(k){const it=D.itens[k];modal(`<h2>${esc(it.nome)} ${xBtn}</h2>
-  <label>Quantidade de "${esc(it.medida)}" (${fmt(it.gMed)} ${it.un} cada)</label><input id="eiQ" inputmode="decimal" value="${fmt(it.q,2)}" oninput="$('#eiG').value=fmt((num(this.value)||0)*${it.gMed},1);eiUpd()">
-  <label>ou o peso exato (${it.un})</label><input id="eiG" inputmode="decimal" value="${fmt(it.q*it.gMed,1)}" oninput="$('#eiQ').value=fmt((num(this.value)||0)/${it.gMed},2);eiUpd()">
-  <div class="card result" style="margin-top:12px;text-align:center"><div class="sm mut">Carboidratos</div><div class="dose" id="eiC" style="font-size:40px"></div></div>
-  <div class="row"><button class="btn danger" onclick="D.itens.splice(${k},1);fecha();updCalc()">Remover</button><button class="btn pri" style="flex:2" onclick="const g=num($('#eiG').value);if(!(g>0)){toast('Informe a quantidade');return;}D.itens[${k}].q=g/${it.gMed};fecha();updCalc()">OK</button></div>`);
-  window.eiUpd=()=>{$('#eiC').innerHTML=fmt((num($('#eiG').value)||0)*it.c100/100,1)+' <small>g</small>';};eiUpd();}
-function qStep(k,d){const it=D.itens[k];const st=d>0?(it.q<1?0.5:1):(it.q<=1?0.5:1);it.q=Math.max(0.5,Math.round((it.q+(d>0?st:-st))*100)/100);updCalc();}
+function editItem(k){qtdModal(null,k);}
+function qStep(k,d){const it=D.itens[k];if(ehPeso(it)){const st=it.q>=100?50:10;it.q=Math.max(st,Math.round((it.q+(d>0?st:-st))/st)*st);updCalc();return;}const st=d>0?(it.q<1?0.5:1):(it.q<=1?0.5:1);it.q=Math.max(0.5,Math.round((it.q+(d>0?st:-st))*100)/100);updCalc();}
 function buscaInline(q){const el=$('#cRes2');if(!norm(q).trim()){el.innerHTML='';return;}
   const L=filtraFoods(q,'').slice(0,7);
-  el.innerHTML=(L.map(f=>`<div class="food" onclick="addFood('${f.id}')"><div style="flex:1;min-width:0"><div class="ell">${S.favoritos.includes(f.id)?'★ ':''}${esc(f.nome)}</div><div class="sm mut">1 ${esc(f.medida)} ≈ <b>${fmt(carbsDe(f,f.gMed),1)} g</b> carbo</div></div><span class="pill bg-ok">+ 1</span></div>`).join('')||'<div class="sm mut" style="padding:8px 0">Não encontrado na tabela.</div>')
+  el.innerHTML=(L.map(f=>`<div class="food" onclick="qtdModal('${f.id}')"><div style="flex:1;min-width:0"><div class="ell">${S.favoritos.includes(f.id)?'★ ':''}${esc(f.nome)}</div><div class="sm mut">1 ${esc(f.medida)} ≈ <b>${fmt(carbsDe(f,f.gMed),1)} g</b> carbo</div></div><span class="pill bg-ok">+</span></div>`).join('')||'<div class="sm mut" style="padding:8px 0">Não encontrado na tabela.</div>')
    +`<button class="btn sm" style="margin-top:6px" onclick="novoAlimento(true)">+ Cadastrar “${esc(q)}” pelo rótulo</button>`;}
 function novaRefeicao(foco,refId){D=novoDraft();if(refId)D.refeicao=refId;go('calc');setTimeout(()=>{const t=foco==='food'?$('#cBusca'):$('#cGlic');if(t)t.focus();},120);}
 
@@ -415,7 +410,7 @@ function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,
     const bi0=bolusCalc();if(bi0&&D.autoBolus&&ch!==D.chave0&&!R.bloqueado){D.doses[bi0.id]=fmt(R.arred,1);D.on[bi0.id]=R.arred>0;}}const c=S.config;
   $('#cTot').textContent=fmt(carbs,1)+' g';
   $('#cItens').innerHTML=D.itens.length?D.itens.map((it,k)=>`<div class="it"><div class="grow" style="cursor:pointer" onclick="editItem(${k})"><div class="ell b">${esc(it.nome)} <span class="mut sm">✏️</span></div><div class="sm mut">${esc(itTxt(it))} · <b>${fmt(itC(it),1)} g carbo</b></div></div>
-    <div class="stepper" style="gap:4px"><button style="width:36px;height:36px;font-size:18px" onclick="qStep(${k},-0.5)">−</button><b style="min-width:30px;text-align:center">${fmt(it.q,2)}</b><button style="width:36px;height:36px;font-size:18px" onclick="qStep(${k},0.5)">+</button></div>
+    <div class="stepper" style="gap:4px"><button style="width:36px;height:36px;font-size:18px" onclick="qStep(${k},-0.5)">−</button><b style="min-width:30px;text-align:center;font-size:13px">${ehPeso(it)?fmt(it.q,0)+'<small>'+it.medida+'</small>':fmt(it.q,2)}</b><button style="width:36px;height:36px;font-size:18px" onclick="qStep(${k},0.5)">+</button></div>
     <button class="x" onclick="D.itens.splice(${k},1);updCalc()">✕</button></div>`).join('')+`<button class="btn sm" style="margin-top:8px" onclick="salvarPrato()">⭐ Salvar estes itens como prato</button>`:'';
   const bi=bolusCalc();
   $('#cBar').innerHTML=R.semConfig?`<div class="sm">⚠️ Fórmula não configurada — <a href="#" onclick="go('ajustes');return false" style="color:var(--pri)">configurar</a></div>`
@@ -493,24 +488,39 @@ function filtraFoods(q,g){const n=norm(q).split(/\s+/).filter(Boolean);
   const qn=norm(q),pen=f=>(S.favoritos.includes(f.id)?-1:0)+(f.grupo==='Meus alimentos'?-0.5:0)+(f.medida==='100 g'?0.4:0)+(/\bcru[as]?\b|\bpo\b|\bpó\b|mistura para/.test(norm(f.nome))&&!/cru|po\b/.test(qn)?0.6:0);
   return L.sort((a,b)=>(sc(a)-sc(b))||(pen(a)-pen(b))||a.nome.localeCompare(b.nome));}
 function listaSel(){const L=filtraFoods(SQ,SG).slice(0,120);
-  $('#sLista').innerHTML=L.length?L.map(f=>`<div class="food" onclick="qtdModal('${f.id}')"><div class="grow" style="flex:1;min-width:0"><div class="ell">${S.favoritos.includes(f.id)?'★ ':''}${esc(f.nome)}</div><div class="sm mut">1 ${esc(f.medida)} (${fmt(f.gMed)} ${f.un}) ≈ <b>${fmt(carbsDe(f,f.gMed),1)} g</b> carbo</div></div><span class="mut">›</span></div>`).join(''):'<div class="empty">Nada encontrado. Cadastre o alimento abaixo.</div>';}
+  $('#sLista').innerHTML=L.length?L.map(f=>`<div class="food" onclick="qtdModal('${f.id}',null,'lista')"><div class="grow" style="flex:1;min-width:0"><div class="ell">${S.favoritos.includes(f.id)?'★ ':''}${esc(f.nome)}</div><div class="sm mut">1 ${esc(f.medida)} (${fmt(f.gMed)} ${f.un}) ≈ <b>${fmt(carbsDe(f,f.gMed),1)} g</b> carbo</div></div><span class="mut">›</span></div>`).join(''):'<div class="empty">Nada encontrado. Cadastre o alimento abaixo.</div>';}
 let QM={};
-function qtdModal(fid){const f0=foodById(fid);const f={...f0};QM={f,modo:'medida',q:1,g:f.gMed};
+// unidades possíveis de um alimento: peso/volume + medidas caseiras
+function unidadesDe(f){const un=f.un==='ml'?'ml':'g';const L=[{m:un,g:1,peso:true}];
+  for(const x of (f.medidas&&f.medidas.length?f.medidas:[{m:f.medida,g:f.gMed}]))if(x&&x.g>0&&x.m!=='100 g'&&x.m!==un&&!L.some(y=>y.m===x.m))L.push({m:x.m,g:x.g});return L;}
+const ehPeso=it=>it.gMed===1&&(it.medida==='g'||it.medida==='ml');
+// tela única de quantidade: escolhe a unidade e digita quanto quiser
+function qtdModal(fid,k,origem){const editando=k!=null&&k>=0,it=editando?D.itens[k]:null;const f=editando?{...(foodById(it.fid)||{}),...it,id:it.fid}:{...foodById(fid)};
+  if(!f.nome){toast('Alimento não encontrado');return;}
+  const U=unidadesDe(f);const ult=(S.ultUnid||{})[f.id];
+  let ui=editando?U.findIndex(u=>u.m===it.medida&&Math.abs(u.g-it.gMed)<1e-6):ult?U.findIndex(u=>u.m===ult):-1;
+  if(editando&&ui<0){U.push({m:it.medida,g:it.gMed});ui=U.length-1;}if(ui<0)ui=U.length>1?1:0;
+  QM={f,U,ui,q:editando?it.q:(U[ui].peso?100:1),k:editando?k:-1};
   modal(`<h2>${esc(f.nome)} ${xBtn}</h2>
-  ${f.medidas&&f.medidas.length>1?`<label>Medida</label><div class="chips" id="qmMeds" style="flex-wrap:wrap">${f.medidas.map((m,i)=>`<button class="chip ${i?'':'on'}" onclick="QM.f.medida=${JSON.stringify(m.m).replace(/"/g,'&quot;')};QM.f.gMed=${m.g};$$('#qmMeds .chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');QM.modo='medida';qmUpd(true)">${esc(m.m)} · ${fmt(m.g)} g</button>`).join('')}</div><div style="height:8px"></div>`:''}
-  <div class="chips"><button class="chip on" id="qmM" onclick="QM.modo='medida';qmUpd(true)">Medida caseira</button><button class="chip" id="qmG" onclick="QM.modo='g';qmUpd(true)">Em ${f.un==='ml'?'ml':'gramas'}</button></div>
-  <div id="qmBody" style="margin-top:12px"></div>
-  <div class="card result" style="margin-top:12px;text-align:center"><div class="sm mut">Carboidratos</div><div class="dose" id="qmC" style="font-size:40px"></div></div>
-  <div class="row"><button class="btn" onclick="abrirSeletor()">‹ Voltar</button><button class="btn pri" style="flex:2" onclick="qmAdd()">Adicionar</button></div>
-  <div class="sm mut" style="margin-top:8px">${f.base?(f.est?'Valor estimado (preparações variam). Para produtos industrializados, prefira o rótulo.':'Fonte: TACO/UNICAMP'+(f.medidas&&f.medidas.length&&f.medida!=='100 g'?' · medidas caseiras: IBGE/POF':'')+(f.fibra!=null?' · fibras: '+fmt(f.fibra*(QM.gt||f.gMed)/100,1)+' g':'')):(f.codigo?'Seu alimento (código '+esc(f.codigo)+').':'Seu alimento cadastrado.')}</div>`);qmUpd(true);}
-function qmUpd(full){const f=QM.f;
-  if(full){$('#qmM').classList.toggle('on',QM.modo==='medida');$('#qmG').classList.toggle('on',QM.modo==='g');
-    $('#qmBody').innerHTML=QM.modo==='medida'?`<label>Quantidade de "${esc(f.medida)}" (${fmt(f.gMed)} ${f.un} cada)</label><div class="stepper"><button onclick="QM.q=Math.max(0.5,(num(QM.q)||0)-0.5);$('#qmQ').value=fmt(QM.q,2);qmUpd()">−</button><input id="qmQ" inputmode="decimal" value="${fmt(QM.q,2)}" oninput="QM.q=num(this.value);qmUpd()"><button onclick="QM.q=(num(QM.q)||0)+0.5;$('#qmQ').value=fmt(QM.q,2);qmUpd()">+</button></div>`
-    :`<label>Quantidade (${f.un})</label><input id="qmGi" inputmode="decimal" value="${fmt(QM.g,1)}" oninput="QM.g=num(this.value);qmUpd()">`;}
-  const g=QM.modo==='medida'?(num(QM.q)||0)*f.gMed:(num(QM.g)||0);QM.gt=g;$('#qmC').innerHTML=fmt(carbsDe(f,g),1)+' <small>g</small>';}
-function qmAdd(){const f=QM.f,g=QM.gt||0;if(!g){toast('Informe a quantidade');return;}
-  const txt=QM.modo==='medida'?`${fmt(QM.q,2)} × ${f.medida} (${fmt(g)} ${f.un})`:`${fmt(g)} ${f.un}`;
-  D.itens.push({fid:f.id,nome:f.nome,gMed:f.gMed,c100:f.c100,un:f.un,medida:f.medida,q:g/f.gMed});fecha();rCalc();}
+  <label>Quantidade</label>
+  <div style="display:flex;gap:8px;align-items:stretch"><input id="qmQ" inputmode="decimal" style="flex:1;font-size:22px;font-weight:700;text-align:center" value="${fmt(QM.q,2)}" oninput="QM.q=num(this.value);qmUpd()" onfocus="this.select()">
+   <select id="qmU" style="flex:1.4" onchange="qmUni(Number(this.value))">${U.map((u,i)=>`<option value="${i}" ${i===ui?'selected':''}>${esc(u.m)}${u.peso?'':' ('+fmt(u.g)+' '+(f.un||'g')+')'}</option>`).join('')}</select></div>
+  <div class="chips" style="margin-top:8px;flex-wrap:wrap" id="qmAt"></div>
+  <div class="card result" style="margin-top:12px;text-align:center"><div class="sm mut" id="qmEq"></div><div class="dose" id="qmC" style="font-size:40px"></div><div class="sm mut">carboidratos</div></div>
+  <div class="row">${editando?`<button class="btn danger" onclick="D.itens.splice(${k},1);fecha();updCalc()">Remover</button>`:origem==='lista'?`<button class="btn" onclick="abrirSeletor()">‹ Voltar</button>`:''}<button class="btn pri" style="flex:2" onclick="qmAdd()">${editando?'OK':'Adicionar'}</button></div>
+  <div class="sm mut" style="margin-top:8px">${f.base?(f.est?'Valor estimado (preparações variam).':'Fonte: TACO/UNICAMP'+(U.length>2?' · medidas caseiras: IBGE/POF':'')):(f.codigo?'Seu alimento (código '+esc(f.codigo)+')':'Seu alimento cadastrado')} · ${fmt(f.c100,1)} g de carbo em 100 ${f.un||'g'}</div>`);
+  qmUpd();setTimeout(()=>{const e=$('#qmQ');if(e){e.focus();e.select();}},150);}
+function qmUni(i){const old=QM.U[QM.ui],g=(num(QM.q)||0)*old.g;QM.ui=i;const u=QM.U[i];
+  QM.q=g>0?(u.peso?Math.round(g):Math.round(g/u.g*100)/100):(u.peso?100:1);$('#qmQ').value=fmt(QM.q,2);qmUpd();}
+function qmUpd(){const f=QM.f,u=QM.U[QM.ui],g=(num(QM.q)||0)*u.g;QM.gt=g;
+  $('#qmC').innerHTML=fmt(carbsDe(f,g),1)+' <small>g</small>';$('#qmEq').textContent=u.peso?'':`= ${fmt(g)} ${f.un||'g'}`;
+  const at=u.peso?[50,100,150,200,250,300,400,500]:[0.5,1,1.5,2,3];
+  $('#qmAt').innerHTML=at.map(v=>`<button class="chip ${Math.abs((num(QM.q)||0)-v)<1e-9?'on':''}" onclick="QM.q=${v};$('#qmQ').value=fmt(${v},2);qmUpd()">${fmt(v,2)}${u.peso?' '+u.m:''}</button>`).join('');}
+function qmAdd(){const f=QM.f,u=QM.U[QM.ui],q=num(QM.q)||0;if(!(q>0)){toast('Informe a quantidade');return;}
+  S.ultUnid=S.ultUnid||{};S.ultUnid[f.id]=u.m;save();
+  const novo={fid:f.id,nome:f.nome,gMed:u.g,c100:f.c100,un:f.un||'g',medida:u.m,q};
+  if(QM.k>=0)D.itens[QM.k]=novo;else D.itens.push(novo);
+  const s=$('#cBusca');if(s){s.value='';$('#cRes2').innerHTML='';}fecha();if(TAB==='calc')updCalc();else rCalc();}
 function abrirPratos(){modal(`<h2>Pratos salvos ${xBtn}</h2>${S.pratos.length?`<div class="list">${S.pratos.map(p=>`<div class="it" style="cursor:pointer" onclick="addPrato('${p.id}')"><div class="grow"><div class="b">${esc(p.nome)}</div><div class="sm mut ell">${esc(p.itens.map(i=>i.nome).join(', '))}</div></div><b>${fmt(p.itens.reduce((a,i)=>a+(i.gMed?itC(i):i.carbs),0),1)} g</b></div>`).join('')}</div>`:'<div class="empty">Nenhum prato salvo ainda.<br>Monte uma refeição e toque em “Salvar estes itens como prato”.</div>'}`);}
 function addPrato(id){const p=S.pratos.find(x=>x.id===id);D.itens.push(...p.itens.map(normItem));fecha();rCalc();}
 function salvarPrato(){const n=prompt('Nome do prato (ex.: Meu café da manhã):');if(!n)return;S.pratos.push({id:uid(),nome:n,itens:D.itens.map(i=>({...i,carbs:itC(i)}))});save();toast('Prato salvo ⭐');}
@@ -619,7 +629,7 @@ function salvaAlimento(doSel,editId){const nome=$('#nN').value.trim(),g=num($('#
   if(!nome||!(g>0)||isNaN(c)||c<0){toast('Preencha nome, porção e carboidratos');return;}
   const o={nome,gMed:g,c100:c/g*100,un:$('#nU').value,medida:$('#nM').value.trim()||'porção'};const cod=($('#nCod')&&$('#nCod').value||'').replace(/\D/g,'');if(cod)o.codigo=cod;
   if(editId)Object.assign(S.alimentos.find(a=>a.id===editId),o);else{o.id='c'+uid();S.alimentos.push(o);}
-  save();toast('Alimento salvo');if(doSel&&TAB==='calc'&&!$('#sLista')){fecha();addFood(editId||o.id);return;}if(doSel)qtdModal(editId||o.id);else{fecha();rAlim();}}
+  save();toast('Alimento salvo');if(doSel)qtdModal(editId||o.id);else{fecha();rAlim();}}
 
 // ===================== AJUSTES =====================
 function campo(k,t,sub,un=''){return `<div class="setrow"><div class="t">${t}${sub?`<div class="sm mut">${sub}</div>`:''}</div><input inputmode="decimal" value="${S.config[k]==null?'':fmt(S.config[k],2)}" placeholder="—" onchange="setCfg('${k}',this)">${un?`<span class="sm mut" style="width:46px">${un}</span>`:''}</div>`;}
@@ -1246,7 +1256,7 @@ async function iniciaScan(){const st=$('#scSt'),v=$('#scVid');
     _scan.zx=await rd.decodeFromVideoElement(v,(res)=>{if(res&&_scan.stream){const c=res.getText();pararScan();achouCodigo(c);}});}
   catch(e){st.innerHTML='Não consegui iniciar o leitor (precisa de internet na primeira vez). Digite o código abaixo.';}}
 async function achouCodigo(cod){cod=String(cod).replace(/\D/g,'');pararScan();
-  const local=S.alimentos.find(a=>a.codigo===cod);if(local){fecha();toast('Produto já cadastrado: '+local.nome);if(TAB==='calc'&&D)addFood(local.id);else verAlimento(local.id);return;}
+  const local=S.alimentos.find(a=>a.codigo===cod);if(local){fecha();toast('Produto já cadastrado: '+local.nome);if(TAB==='calc'&&D)qtdModal(local.id);else verAlimento(local.id);return;}
   modal(`<h2>🏷️ ${esc(cod)} ${xBtn}</h2><div class="empty">🔎 Buscando o produto na base aberta…</div>`);
   try{const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${cod}?fields=code,product_name,product_name_pt,generic_name_pt,brands,quantity,serving_size,serving_quantity,nutriments,image_front_small_url&lc=pt`);
     const d=await r.json();const p=d&&d.status===1?d.product:null;const nu=p&&p.nutriments||{};
