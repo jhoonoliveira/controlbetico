@@ -111,9 +111,6 @@ jobs:
             bash teste.sh "Agora não" tela4-inicio.png
             bash teste.sh "Ajustes" tela5-ajustes.png
             bash teste.sh "Atualizações" tela6-atualizacoes.png
-            adb shell input swipe 540 1300 540 450 600
-            sleep 4
-            adb exec-out screencap -p > tela6b-rolou.png
             bash teste.sh "Testar leitor de rótulo" tela7-teste-leitor.png 50
             adb logcat -d > logcat.txt
             adb shell pidof com.controlbetico.app && echo "APP_RODANDO=sim" > resultado.txt || echo "APP_RODANDO=nao" > resultado.txt
