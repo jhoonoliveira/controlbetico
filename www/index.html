@@ -813,14 +813,14 @@ const txtLido=R=>`<details style="margin-top:4px"><summary class="sm mut" style=
 function fotoRotulo(){novoAlimento(true);const i=$('#fFoto');if(i)i.click();}
 
 // diagnóstico: lê uma imagem de teste gerada no próprio aparelho
-async function testeOCR(){const st=$('#ocrTeste');if(st)st.innerHTML='Testando o leitor…';const t0=Date.now();
+async function testeOCR(){toast('Testando o leitor de rótulo…');const st=null;const t0=Date.now();
   try{const cv=document.createElement('canvas');cv.width=900;cv.height=260;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,900,260);g.fillStyle='#000';g.font='bold 44px sans-serif';
     g.fillText('Porção 30 g',30,80);g.fillText('Carboidratos (g)   21',30,160);g.fillText('Proteínas (g)   1,6',30,235);
     _ocrProg=m=>{if(st)st.innerHTML='Testando o leitor… '+esc(m.status)+(m.progress?' '+Math.round(m.progress*100)+'%':'');};
     const w=await workerOCR();const {data}=await comPrazo(w.recognize(cv),60000,'tempo');const ok=/21/.test(data.text)&&/carbo/i.test(data.text);
     const msg=(ok?'✅ Leitor OK':'⚠️ Leitor respondeu, mas leu diferente')+' ('+((Date.now()-t0)/1000).toFixed(1)+' s)';console.log('CB_OCR '+msg+' | '+data.text.replace(/\s+/g,' ').slice(0,80));
-    if(st)st.innerHTML=esc(msg);}
-  catch(e){const msg='❌ Leitor falhou: '+(e&&e.message||e);console.log('CB_OCR '+msg);if(st)st.innerHTML=esc(msg);}
+    modal(`<h2>Leitor de rótulo ${xBtn}</h2><p>${esc(msg)}</p>`);}
+  catch(e){const msg='❌ Leitor falhou: '+(e&&e.message||e);console.log('CB_OCR '+msg);modal(`<h2>Leitor de rótulo ${xBtn}</h2><p>${esc(msg)}</p>`);}
   finally{_ocrProg=null;}}
 
 // ===================== RELATÓRIO PROFISSIONAL (HTML para ver, imprimir/PDF e compartilhar) =====================
@@ -1449,10 +1449,12 @@ function avisoApk(u,manual){if(!manual&&Date.now()-(+localStorage.getItem('cb_ap
   <button class="btn pri" style="width:100%;margin-top:8px" onclick="window.open('${esc(u.apk)}','_system');fecha()">⬇️ Baixar nova versão</button>`);}
 function secaoAtualizaHTML(){const pronta=localStorage.getItem('cb_upd_pronta');
   return `<details class="card"><summary>⬆️ Atualizações${aj('O app procura atualizações sozinho quando você abre e aplica na próxima abertura. Seus dados não são afetados.')}</summary>
-   <div class="calcline"><span>Versão instalada</span><b>${esc(VER.versao)}</b></div>
+   <div class="calcline" onclick="toqueVersao()"><span>Versão instalada</span><b>${esc(VER.versao)}</b></div>
    ${pronta&&cmpVer(pronta,VER.versao)>0?`<div class="sm" style="color:var(--ok)">Versão ${esc(pronta)} já baixada — feche e abra o app para usar.</div>`:''}
    <button class="btn" style="width:100%" onclick="verificaAtualizacao(true)">🔄 Procurar atualização agora</button>
-   <button class="btn" style="width:100%;margin-top:8px" onclick="testeOCR()">🧪 Testar leitor de rótulo</button><div id="ocrTeste" class="sm mut" style="margin-top:6px"></div></details>`;}
+</details>`;}
+// diagnóstico escondido: 5 toques rápidos em "Versão instalada" testam o leitor de rótulo
+let _vt=[];function toqueVersao(){const n=Date.now();_vt=_vt.filter(t=>n-t<2500);_vt.push(n);if(_vt.length>=5){_vt=[];testeOCR();}}
 function iniciaAtualizacao(){if(!NAT||!CBN.Updater)return;
   try{CBN.Updater.notifyAppReady();}catch(e){}
   console.log('CB_VERSAO='+VER.versao+' nativo='+VER.nativo);
