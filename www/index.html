@@ -57,6 +57,8 @@ input.big{font-size:30px;font-weight:700;text-align:center;padding:12px}
 .modal{background:var(--card);width:100%;max-width:640px;max-height:calc(92vh - var(--st));overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + var(--sb))}
 .modal h2{margin:0 0 10px;font-size:18px;display:flex;justify-content:space-between;align-items:center}
 .stepper{display:flex;align-items:center;gap:8px}.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:22px;cursor:pointer}.stepper input{text-align:center;font-weight:700}
+.aj{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;min-width:18px;border-radius:50%;border:1px solid var(--mut);color:var(--mut);background:none;font:700 11px/1 system-ui,sans-serif;padding:0;margin:0 0 0 6px;vertical-align:middle;opacity:.7;cursor:pointer}.aj:active{opacity:1}
+.ajpop{position:fixed;z-index:90;background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .toast{position:fixed;left:50%;bottom:calc(90px + var(--sb));transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-size:14px;opacity:0;transition:.25s;pointer-events:none;max-width:90%}
 .toast.on{opacity:1}
 .sw{position:relative;width:46px;height:26px;flex:0 0 46px}.sw input{opacity:0;width:0;height:0}.sw span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s;cursor:pointer}.sw span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}.sw input:checked+span{background:var(--pri)}.sw input:checked+span:before{transform:translateX(20px)}
@@ -196,29 +198,30 @@ function ateQuando(fim,ref=Date.now()){const a=new Date(ref),b=new Date(fim);con
 // ---------- cálculo ----------
 function arredonda(v){const c=S.config,p=num(c.passo)||1;
   if(c.modoArred==='baixo')return Math.floor(v/p+1e-9)*p;if(c.modoArred==='cima')return Math.ceil(v/p-1e-9)*p;return Math.round(v/p)*p;}
-function calcular({glic,carbs,refId,ts,excluir}){
+function calcular({glic,carbs,refId,ts,excluir,iobModo}){
   const c=S.config,p=paramsRef(refId),R={...p,x:0,y:0,yBruto:null,iob:0,iobDesc:0,total:0,arred:0,avisos:[],bloqueado:false};
-  if(!(p.ric>0&&p.fs>0&&p.alvo>0)){R.semConfig=true;R.bloqueado=true;R.avisos.push(['warn','<b>Fórmula não configurada.</b> Preencha relação insulina:carboidrato, glicemia alvo e fator de sensibilidade em <b>Ajustes → Fórmula da dose</b> (conforme a sua receita).']);return R;}
+  if(!(p.ric>0&&p.fs>0&&p.alvo>0)){R.semConfig=true;R.bloqueado=true;R.avisos.push(['warn','<b>Fórmula não configurada.</b>','Preencha relação insulina:carboidrato, glicemia alvo e fator de sensibilidade em <b>Ajustes → Fórmula da dose</b>, conforme a sua receita.']);return R;}
   carbs=isNaN(carbs)?0:carbs;
   R.x=carbs>0?carbs/p.ric:0;
   const temG=!isNaN(glic)&&glic>0;
   if(temG){
     if(glic<c.hipo){R.bloqueado=true;
-      R.avisos.push(['low',`<b>Glicemia baixa (${fmt(glic,0)} mg/dL).</b> Não aplique insulina agora. Trate a hipoglicemia: ${fmt(c.hipoCarbs,0)} g de carboidrato rápido (ex.: 1 colher de sopa de açúcar em água ou 150 ml de refrigerante comum), meça de novo em 15 min e repita se continuar abaixo de ${fmt(c.hipo,0)}. Depois de normalizar, refaça o cálculo.`]);}
+      R.avisos.push(['low',`<b>Glicemia baixa (${fmt(glic,0)}).</b> Não aplique insulina — trate a hipoglicemia.`,`Não aplique insulina agora. Trate a hipoglicemia: ${fmt(c.hipoCarbs,0)} g de carboidrato rápido (ex.: 1 colher de sopa de açúcar em água ou 150 ml de refrigerante comum), meça de novo em 15 min e repita se continuar abaixo de ${fmt(c.hipo,0)}. Depois de normalizar, refaça o cálculo.`]);}
     R.yBruto=(glic-p.alvo)/p.fs;R.y=R.yBruto;
     if(R.y<0&&!c.correcaoNegativa)R.y=0;
     if(num(c.limiarCorrecao)>0&&glic<num(c.limiarCorrecao)&&R.y>0)R.y=0;
-    if(glic>=c.altoAlerta)R.avisos.push(['bad',`<b>Glicemia muito alta (${fmt(glic,0)}).</b> Siga a orientação da sua médica para hiperglicemia (ex.: verificar cetonas, hidratar). Se não baixar ou se tiver náusea/vômito, procure atendimento.`]);
-  }else R.avisos.push(['info','Sem glicemia informada: o cálculo considera só a comida (X). Meça antes para incluir a correção (Y).']);
+    if(glic>=c.altoAlerta)R.avisos.push(['bad',`<b>Glicemia muito alta (${fmt(glic,0)}).</b>`,`Siga a orientação da sua médica para hiperglicemia (ex.: verificar cetonas, hidratar). Se não baixar ou se tiver náusea/vômito, procure atendimento.`]);
+  }else R.avisos.push(['info','Sem glicemia: conta só a comida (X).','Sem a glicemia, o app não calcula a correção (Y). Meça antes para incluí-la.']);
   const a=insulinaAtiva(ts||Date.now(),excluir);R.iob=a.ui;
-  if(a.ui>=0.1){
-    if(c.iobModo==='correcao'&&R.y>0){R.iobDesc=Math.min(R.y,a.ui);R.y-=R.iobDesc;
-      R.avisos.push(['info',`Descontei ${fmt(R.iobDesc,1)} UI de insulina rápida ainda ativa (última: ${fmt(a.ult.ui,1)} UI às ${hora(a.ult.ts)}).`]);}
-    else if(c.iobModo!=='desligado')R.avisos.push(['warn',`Ainda há ~${fmt(a.ui,1)} UI de ${esc(a.ult.nome)} ativa, <b>${ateQuando(a.fim,ts||Date.now())}</b> — aplicada às ${hora(a.ult.ts)}. A fórmula da receita não desconta isso — cuidado com doses seguidas (risco de hipoglicemia).`]);}
+  const modoIob=iobModo||c.iobModo;R.iobModo=modoIob;R.iobA=a;
+  if(a.ui>=0.1){const quando=ateQuando(a.fim,ts||Date.now());
+    if(modoIob==='correcao'&&R.y>0){R.iobDesc=Math.min(R.y,a.ui);R.y-=R.iobDesc;
+      R.avisos.push(['info',`Descontei <b>${fmt(R.iobDesc,1)} UI</b> de insulina ativa.`,`Ainda há ~${fmt(a.ui,1)} UI de ${esc(a.ult.nome)} agindo, ${quando}. O desconto sai só da correção (Y), nunca da comida (X).`]);}
+    else if(modoIob!=='desligado')R.avisos.push(['warn',`~${fmt(a.ui,1)} UI de ${esc(a.ult.nome)} ativa, <b>${quando}</b>.`,`Aplicada às ${hora(a.ult.ts)}. Neste cálculo ela não está sendo descontada — cuidado com doses seguidas (risco de hipoglicemia).${modoIob==='correcao'?' Não há correção positiva para descontar.':''}`]);}
   R.total=R.x+R.y;
-  if(R.total<0){R.total=0;if(!R.bloqueado)R.avisos.push(['info','A correção negativa (glicemia abaixo do alvo) anulou a dose da comida. Dose sugerida: 0 UI.']);}
+  if(R.total<0){R.total=0;if(!R.bloqueado)R.avisos.push(['info','Correção negativa zerou a dose.','A glicemia abaixo do alvo gerou correção negativa maior que a dose da comida. Dose sugerida: 0 UI.']);}
   R.arred=Math.max(0,arredonda(R.total));
-  if(num(c.doseMax)>0&&R.arred>num(c.doseMax))R.avisos.push(['bad',`Dose acima do seu limite de segurança (${fmt(c.doseMax,1)} UI). Confira os carboidratos e a glicemia digitados.`]);
+  if(num(c.doseMax)>0&&R.arred>num(c.doseMax))R.avisos.push(['bad',`Dose acima do seu limite (${fmt(c.doseMax,1)} UI).`,'Confira os carboidratos e a glicemia digitados.']);
   if(R.bloqueado){R.arred=0;}
   return R;}
 
@@ -235,6 +238,13 @@ $('#btnTema').onclick=()=>{S.config.tema=S.config.tema==='claro'?'escuro':'claro
 function modal(html){$('#modal').innerHTML=html;$('#mbg').classList.add('on');}
 function fecha(){$('#mbg').classList.remove('on');$('#modal').innerHTML='';}
 $('#mbg').addEventListener('click',e=>{if(e.target.id==='mbg')fecha();});
+const aj=t=>`<button type="button" class="aj" aria-label="Ajuda" data-t="${esc(t)}" onclick="event.preventDefault();event.stopPropagation();ajuda(this)">?</button>`;
+function fechaAj(){const p=document.getElementById('ajPop');if(p)p.remove();}
+function ajuda(b){const ja=document.getElementById('ajPop');fechaAj();if(ja&&ja._b===b)return;const p=document.createElement('div');p.id='ajPop';p.className='ajpop';p._b=b;p.innerHTML=b.dataset.t;document.body.appendChild(p);
+  const r=b.getBoundingClientRect(),W=Math.min(320,innerWidth-24);p.style.width=W+'px';let x=Math.min(Math.max(12,r.left+r.width/2-W/2),innerWidth-W-12);p.style.left=x+'px';
+  const h=p.offsetHeight;p.style.top=(r.bottom+8+h<innerHeight-70?r.bottom+8:Math.max(12,r.top-8-h))+'px';}
+document.addEventListener('click',e=>{if(!e.target.closest||!e.target.closest('#ajPop,.aj'))fechaAj();},true);
+addEventListener('scroll',fechaAj,true);
 const xBtn='<button class="x" onclick="fecha()">✕</button>';
 
 // ---------- estatísticas ----------
@@ -292,8 +302,7 @@ function rInicio(){
   h+=alertasEstoque();
   // hoje
   const hoje0=new Date();hoje0.setHours(0,0,0,0);const T=S.registros.filter(r=>r.ts>=hoje0.getTime()).sort((a,b)=>a.ts-b.ts);
-  h+=`<div class="card"><h3>Hoje <span class="mut sm">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}</span></h3><div class="list">`;
-  h+=`<div class="sm mut" style="margin-bottom:4px">Marca sozinho quando você salva uma medição/refeição. Toque numa insulina para marcar ou desmarcar. Errou algo? Toque em ✏️ para corrigir.</div>`;
+  h+=`<div class="card"><h3>Hoje <span class="mut sm">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}</span>${aj('Marca sozinho quando você salva uma medição ou refeição. Toque numa insulina para marcar ou desmarcar. Errou algo? Toque em ✏️ para corrigir.')}</h3><div class="list">`;
   for(const r of refsOrd()){const R=T.filter(x=>x.refeicao===r.id);const gl=R.find(x=>x.glic>0);
     const tomadas={};R.forEach(x=>(x.doses||[]).forEach(d=>tomadas[d.ins]=(tomadas[d.ins]||0)+d.ui));
     const cb=R.reduce((a,x)=>a+(x.carbs||0),0);
@@ -391,7 +400,7 @@ function rCalc(){if(!D)D=novoDraft();D.itens=D.itens.map(normItem);const el=$('#
     <div class="grid2" style="margin-top:8px"><button class="btn sm" onclick="abrirSeletor()">📋 Lista completa</button><button class="btn sm" onclick="abrirPratos()">⭐ Prato salvo</button></div>
     <label>Ou digite o total de carboidratos (g) — soma com os alimentos acima</label><input id="cExtra" inputmode="decimal" placeholder="0" value="${esc(D.extra)}" oninput="D.extra=this.value;updCalc()"></div>
   <div class="card result" id="cRes"></div>
-  <div class="card"><h3>💉 Doses que vou registrar</h3><div id="cDoses"></div></div>
+  <div class="card"><h3>💉 Doses que vou registrar${aj("Ligue só o que você realmente aplicou (ou vai aplicar). Você pode mudar o valor.")}</h3><div id="cDoses"></div></div>
   <div class="card"><h3>Data e observações</h3>
     <div><div><label>Data e hora</label><input type="datetime-local" value="${toLocalInput(D.ts)}" onchange="D.ts=fromLocalInput(this.value);updCalc()"></div></div>
     <div class="tagsel" style="margin-top:10px">${TAGS.map(t=>`<button class="chip ${D.tags.includes(t)?'on':''}" onclick="togTag('${t}',this)">${t}</button>`).join('')}</div>
@@ -401,7 +410,7 @@ function rCalc(){if(!D)D=novoDraft();D.itens=D.itens.map(normItem);const el=$('#
   updCalc();}
 function togTag(t,b){const i=D.tags.indexOf(t);i<0?D.tags.push(t):D.tags.splice(i,1);b.classList.toggle('on');}
 
-function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,carbs,refId:D.refeicao,ts:D.ts,excluir:D.editId});D._R=R;
+function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,carbs,refId:D.refeicao,ts:D.ts,excluir:D.editId,iobModo:D.iobModo});D._R=R;
   if(D.editId){const ch=carbs.toFixed(2)+'|'+D.glic+'|'+D.refeicao;if(D.chave0===null)D.chave0=ch;
     const bi0=bolusCalc();if(bi0&&D.autoBolus&&ch!==D.chave0&&!R.bloqueado){D.doses[bi0.id]=fmt(R.arred,1);D.on[bi0.id]=R.arred>0;}}const c=S.config;
   $('#cTot').textContent=fmt(carbs,1)+' g';
@@ -411,7 +420,7 @@ function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,
   const bi=bolusCalc();
   $('#cBar').innerHTML=R.semConfig?`<div class="sm">⚠️ Fórmula não configurada — <a href="#" onclick="go('ajustes');return false" style="color:var(--pri)">configurar</a></div>`
    :R.bloqueado?`<div class="b g-low">⚠️ Glicemia baixa — não aplicar insulina agora</div>`
-   :(isNaN(glic)&&!carbs)?`<div class="sm mut">Digite a glicemia e/ou os alimentos — a dose aparece aqui na hora.</div>`
+   :(isNaN(glic)&&!carbs)?`<div class="sm mut">Digite a glicemia e/ou os alimentos.</div>`
    :`<div class="row" style="justify-content:space-between"><div class="sm" style="flex:2">Aplicar de <b>${esc(bi?bi.nome:'insulina rápida')}</b><div class="mut">${fmt(carbs,1)} g carbo${isNaN(glic)?'':' · glicemia '+fmt(glic,0)}</div></div><div style="flex:1;text-align:right;font-size:30px;font-weight:900;color:var(--pri)">${fmt(R.arred,1)}<small style="font-size:14px"> UI</small></div></div>`;
   let h='';
   if(R.semConfig){h=`<div class="dose mut">— <small>UI</small></div><div style="text-align:center;margin-top:8px"><button class="btn pri" onclick="go('ajustes')">Configurar fórmula</button></div>`;}
@@ -427,7 +436,10 @@ function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,
   if(!R.bloqueado&&R.arred>0&&num(c.antecedencia)>0){const ap=D.ts,co=D.ts+num(c.antecedencia)*60000;
     h+=`<div class="alert info" style="text-align:center">Aplicar às <b>${hora(ap)}</b> → comer a partir das <b>${hora(co)}</b> (${fmt(c.antecedencia,0)} min antes)</div>`;}
   if(D.editId&&bi&&!R.bloqueado)h+=`<div style="text-align:center;margin-top:8px"><button class="btn sm" onclick="usarSugestao()">Usar ${fmt(R.arred,1)} UI nas doses abaixo</button></div>`;
-  h+=R.avisos.map(([k,t])=>`<div class="alert ${k}">${t}</div>`).join('');
+  h+=R.avisos.map(([k,t,a])=>`<div class="alert ${k}">${t}${a?aj(a):''}</div>`).join('');
+  if(R.iob>=0.1&&!R.semConfig){const pad=c.iobModo==='correcao'?'sim':'nao',at=D.iobModo?(D.iobModo==='correcao'?'sim':'nao'):pad;
+    const bt=(v,l)=>`<button class="chip ${at===v?'on':''}" onclick="D.iobModo='${v==='sim'?'correcao':'avisar'}';if('${v}'==='${pad}')D.iobModo=null;updCalc()">${l}</button>`;
+    h+=`<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><span class="sm" style="white-space:nowrap">Descontar insulina ativa?</span>${bt('nao','Não')}${bt('sim','Sim')}${aj('Escolha só para este cálculo. Já vem marcado o que está configurado em Ajustes → Cálculo. “Sim” desconta a insulina ainda ativa da correção (Y) — nunca da comida.')}</div>`;}
   $('#cRes').innerHTML=h;
   // doses
   let d='';
@@ -442,7 +454,7 @@ function updCalc(){const carbs=carbsD(),glic=num(D.glic);const R=calcular({glic,
     d+=`<div class="setrow"><label class="sw"><input type="checkbox" ${D.on[i.id]?'checked':''} onchange="D.on['${i.id}']=this.checked;D.editados['${i.id}']=true"><span></span></label>
       <div class="t"><div class="b"><span class="dot" style="background:${i.cor}"></span> ${esc(i.nome)}</div><div class="sm mut">${tipo||'manual'}</div></div>
       <input inputmode="decimal" value="${esc(D.doses[i.id])}" placeholder="UI" oninput="D.doses['${i.id}']=this.value;D.editados['${i.id}']=true;if(D.editId){D.autoBolus=false;}const cb=this.parentNode.querySelector('input[type=checkbox]');cb.checked=num(this.value)>0;D.on['${i.id}']=cb.checked"></div>`;}
-  d+='<div class="sm mut" style="margin-top:6px">Ligue só o que você realmente aplicou (ou vai aplicar). Você pode mudar o valor.</div>';
+
   $('#cDoses').innerHTML=d;}
 
 function salvarCalc(){const R=D._R,carbs=carbsD(),glic=num(D.glic);
@@ -590,13 +602,13 @@ function verAlimento(id){const f=foodById(id);modal(`<h2>${esc(f.nome)} ${xBtn}<
   ${f.base?'':`<div class="row" style="margin-top:12px"><button class="btn danger" onclick="if(confirm('Excluir alimento?')){S.alimentos=S.alimentos.filter(x=>x.id!=='${f.id}');save();fecha();rAlim()}">Excluir</button><button class="btn pri" onclick="novoAlimento(false,'${f.id}')">Editar</button></div>`}`);}
 function novoAlimento(doSeletor,editId){const f=editId?S.alimentos.find(a=>a.id===editId):{nome:'',medida:'porção',gMed:'',c100:'',un:'g'};
   const cm=f.gMed?fmt(f.c100*f.gMed/100,2):'';
-  modal(`<h2>${editId?'Editar':'Novo'} alimento ${xBtn}</h2>
+  modal(`<h2>${editId?'Editar':'Novo'} alimento${aj('<b>📷 Rótulo / 🖼️ Galeria:</b> foto só da tabela nutricional, de frente e com boa luz — o app lê e preenche, você confere e salva.<br><b>🏷️ Código:</b> busca o produto pelo código de barras.<br><b>À mão:</b> copie da tabela o tamanho da porção e os “Carboidratos” dessa porção.')} ${xBtn}</h2>
   <div class="grid3"><button class="btn pri" onclick="$('#fFoto').click()">📷 Rótulo</button><button class="btn" onclick="$('#fGal').click()">🖼️ Galeria</button><button class="btn" onclick="lerCodigo()">🏷️ Código</button></div>
   <input type="hidden" id="nCod" value="${esc(f.codigo||'')}">
   <input type="file" id="fFoto" accept="image/*" capture="environment" style="display:none" onchange="lerRotulo(this)"><input type="file" id="fGal" accept="image/*" style="display:none" onchange="lerRotulo(this)">
-  <div class="sm mut" style="margin-top:6px">Tire a foto só da <b>tabela nutricional</b>, de frente, com boa luz. O app lê e preenche — você confere e salva.</div>
+
   <div id="ocrFoto"></div><div id="ocrSt"></div>
-  <div class="sm mut" style="margin-top:10px">Ou copie à mão da tabela: tamanho da porção e “Carboidratos” dessa porção.</div>
+
   <label>Nome</label><input id="nN" value="${esc(f.nome)}" placeholder="ex.: Pão integral marca X">
   <div class="grid2"><div><label>Porção (número)</label><input id="nG" inputmode="decimal" value="${f.gMed?fmt(f.gMed,1):''}" placeholder="ex.: 50"></div>
   <div><label>Unidade</label><select id="nU"><option value="g" ${f.un==='g'?'selected':''}>gramas (g)</option><option value="ml" ${f.un==='ml'?'selected':''}>mililitros (ml)</option></select></div></div>
@@ -619,13 +631,12 @@ function rAjustes(){const c=S.config;
   $('#tab-ajustes').innerHTML=`
   <div class="card" style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="go('perfil')">${avatar(48)}<div style="flex:1"><div class="b">${esc(S.config.nome||'Meu perfil')}</div><div class="sm mut">${esc(resumoPerfil())||'Nome, foto, diagnóstico, médica, emergência…'}</div></div><span class="mut">›</span></div>
   ${typeof secaoContaHTML==='function'?secaoContaHTML():''}
-  <details class="card"><summary>📐 Fórmula da dose</summary>
-    <div class="sm mut" style="margin:8px 0">Preencha conforme a sua receita. Dose = X + Y · X = carboidratos ÷ relação · Y = (glicemia − alvo) ÷ fator de sensibilidade</div>
+  <details class="card"><summary>📐 Fórmula da dose${aj('Preencha conforme a sua receita.<br>Dose = X + Y<br>X = carboidratos ÷ relação<br>Y = (glicemia − alvo) ÷ fator de sensibilidade<br>Para valores diferentes por refeição, edite o momento em “Momentos do dia”.')}</summary>
     ${campo('ric','Relação insulina : carboidrato','1 UI cobre quantos gramas (X = carbo ÷ este valor)','g/UI')}
     ${campo('alvo','Glicemia alvo','valor subtraído na correção (Y)','mg/dL')}
     ${campo('fs','Fator de sensibilidade','1 UI baixa quantos mg/dL (Y = … ÷ este valor)','mg/dL')}
     ${campo('antecedencia','Aplicar antes da refeição','opcional','min')}
-    <div class="sm mut">Para valores diferentes por refeição, edite o momento em “Momentos do dia”.</div></details>
+</details>
   <details class="card"><summary>🎯 Faixas de glicemia</summary>
     ${campo('hipo','Hipoglicemia abaixo de','bloqueia a sugestão de dose','mg/dL')}
     ${campo('alvoMin','Faixa alvo — mínimo','','mg/dL')}${campo('alvoMax','Faixa alvo — máximo','','mg/dL')}
@@ -635,22 +646,21 @@ function rAjustes(){const c=S.config;
     ${selCfg('passo','Arredondar a dose','como sua seringa/caneta marca',[[1,'1 UI'],[0.5,'0,5 UI'],[0.1,'sem (0,1)']])}
     ${selCfg('modoArred','Sentido do arredondamento','',[['proximo','Mais próximo'],['baixo','Para baixo'],['cima','Para cima']])}
     ${campo('doseMax','Alerta de dose máxima','avisa se a sugestão passar disso · vazio = sem alerta','UI')}
-    <div class="setrow"><div class="t">Correção negativa<div class="sm mut">Se a glicemia estiver abaixo do alvo, diminui a dose (Y negativo), como na fórmula</div></div><label class="sw"><input type="checkbox" ${c.correcaoNegativa?'checked':''} onchange="S.config.correcaoNegativa=this.checked;save()"><span></span></label></div>
+    <div class="setrow"><div class="t">Correção negativa${aj('Se a glicemia estiver abaixo do alvo, diminui a dose (Y negativo), como na fórmula.')}</div><label class="sw"><input type="checkbox" ${c.correcaoNegativa?'checked':''} onchange="S.config.correcaoNegativa=this.checked;save()"><span></span></label></div>
     ${campo('limiarCorrecao','Corrigir só a partir de','0 = sempre aplicar a fórmula','mg/dL')}
     ${selCfg('iobModo','Insulina rápida ainda ativa','evita somar doses seguidas',[['avisar','Só avisar'],['correcao','Descontar da correção'],['desligado','Ignorar']])}</details>
-  <details class="card"><summary>🕐 Momentos do dia</summary><div class="sm mut" style="margin:8px 0">Cadastre quantos quiser (refeições, horários de medir ou de insulina). Toque para editar ou excluir.</div><div class="list">${S.refeicoes.length?"":"<div class='empty'>Nenhum momento cadastrado.</div>"}${refsOrd().map(r=>`<div class="it" style="cursor:pointer" onclick="editRef('${r.id}')"><div class="b" style="width:52px">${r.inicio}</div><div class="grow"><div>${esc(r.nome)}</div><div class="sm mut">${r.medir?'medir glicemia · ':''}${[r.ric!=null&&r.ric!==''?'relação '+r.ric:'',r.fs!=null&&r.fs!==''?'FS '+r.fs:'',r.alvo!=null&&r.alvo!==''?'alvo '+r.alvo:''].filter(Boolean).join(' · ')||'usa valores padrão'}</div></div><span class="mut">›</span></div>`).join('')}</div>
+  <details class="card"><summary>🕐 Momentos do dia${aj('Cadastre quantos quiser (refeições, horários de medir ou de insulina). Toque para editar ou excluir.')}</summary><div class="list">${S.refeicoes.length?"":"<div class='empty'>Nenhum momento cadastrado.</div>"}${refsOrd().map(r=>`<div class="it" style="cursor:pointer" onclick="editRef('${r.id}')"><div class="b" style="width:52px">${r.inicio}</div><div class="grow"><div>${esc(r.nome)}</div><div class="sm mut">${r.medir?'medir glicemia · ':''}${[r.ric!=null&&r.ric!==''?'relação '+r.ric:'',r.fs!=null&&r.fs!==''?'FS '+r.fs:'',r.alvo!=null&&r.alvo!==''?'alvo '+r.alvo:''].filter(Boolean).join(' · ')||'usa valores padrão'}</div></div><span class="mut">›</span></div>`).join('')}</div>
     <button class="btn full" style="margin-top:8px" onclick="editRef(null)">+ Adicionar momento</button></details>
-  <details class="card" open><summary>💉 Minhas insulinas e doses fixas</summary><div class="sm mut" style="margin:8px 0">Toque numa insulina para mudar nome, tipo, doses fixas por horário (ex.: NPH) e estoque.</div><div class="list">${S.insulinas.length?"":"<div class='empty'>Nenhuma insulina cadastrada.</div>"}${S.insulinas.map(i=>`<div class="it" style="cursor:pointer" onclick="editIns('${i.id}')"><span class="dot" style="background:${i.cor}"></span><div class="grow"><div class="b">${esc(i.nome)} ${i.ativa?'':'<span class="pill bg-hi">inativa</span>'}</div><div class="sm mut">${i.tipo==='bolus'?'Rápida/ultrarrápida — usada na calculadora':'Basal / dose fixa'}${Object.values(i.fixas||{}).some(v=>num(v)>0)?' · fixas: '+Object.entries(i.fixas).filter(([,v])=>num(v)>0).map(([k,v])=>(ref(k)?.nome||k)+' '+fmt(v)).join(', '):''}</div></div><span class="mut">›</span></div>`).join('')}</div>
+  <details class="card" open><summary>💉 Minhas insulinas e doses fixas${aj('Toque numa insulina para mudar nome, tipo, doses fixas por horário (ex.: NPH) e estoque. A calculadora usa a primeira insulina ativa do tipo “rápida”.')}</summary><div class="list">${S.insulinas.length?"":"<div class='empty'>Nenhuma insulina cadastrada.</div>"}${S.insulinas.map(i=>`<div class="it" style="cursor:pointer" onclick="editIns('${i.id}')"><span class="dot" style="background:${i.cor}"></span><div class="grow"><div class="b">${esc(i.nome)} ${i.ativa?'':'<span class="pill bg-hi">inativa</span>'}</div><div class="sm mut">${i.tipo==='bolus'?'Rápida/ultrarrápida — usada na calculadora':'Basal / dose fixa'}${Object.values(i.fixas||{}).some(v=>num(v)>0)?' · fixas: '+Object.entries(i.fixas).filter(([,v])=>num(v)>0).map(([k,v])=>(ref(k)?.nome||k)+' '+fmt(v)).join(', '):''}</div></div><span class="mut">›</span></div>`).join('')}</div>
     <button class="btn full" style="margin-top:8px" onclick="editIns(null)">+ Adicionar insulina</button>
-    <div class="sm mut" style="margin-top:6px">A calculadora usa a primeira insulina ativa do tipo “rápida”.</div></details>
-  <details class="card"><summary>🥗 Tabela de alimentos</summary><div class="sm" style="margin:8px 0">Versão <b>${esc(baseAtiva().versao)}</b> · ${baseFoods().length} alimentos</div><div class="sm mut">${esc(baseAtiva().fonte||'')}</div>
-    <div class="sm mut" style="margin-top:6px">O app procura atualizações sozinho a cada 3 dias quando tem internet. Seus alimentos cadastrados nunca são alterados.</div>
+</details>
+  <details class="card"><summary>🥗 Tabela de alimentos${aj('O app procura atualizações da tabela sozinho a cada 3 dias quando tem internet. Seus alimentos cadastrados nunca são alterados.')}</summary><div class="sm" style="margin:8px 0">Versão <b>${esc(baseAtiva().versao)}</b> · ${baseFoods().length} alimentos</div><div class="sm mut">${esc(baseAtiva().fonte||'')}</div>
+
     <button class="btn full" style="margin-top:8px" onclick="atualizaBase(true)">🔄 Verificar atualização agora</button></details>
   <details class="card"><summary>📦 Estoque</summary>
     <div class="setrow"><div class="t">Fitas de glicemia<div class="sm mut">desconta 1 a cada medição · vazio = não controlar</div></div><input inputmode="numeric" value="${S.fitas??''}" onchange="S.fitas=this.value===''?null:num(this.value);save();toast('Salvo')"></div>
-    <div class="sm mut">O estoque de cada insulina fica dentro de “Minhas insulinas”.</div></details>
-  <details class="card"><summary>💾 Backup e dados</summary>
-    <div class="sm mut" style="margin:8px 0">Tudo fica salvo só neste aparelho. Faça backup de vez em quando (ex.: mande o arquivo para o seu Drive/WhatsApp).</div>
+</details>
+  <details class="card"><summary>💾 Backup e dados${aj('Tudo fica salvo só neste aparelho. Faça backup de vez em quando (ex.: mande o arquivo para o seu Drive ou WhatsApp).')}</summary>
     <div class="grid2"><button class="btn" onclick="exportJSON()">⬇ Fazer backup</button><button class="btn" onclick="$('#fImp').click()">⬆ Restaurar</button></div>
     <input type="file" id="fImp" accept=".json,application/json" style="display:none" onchange="importJSON(this)">
     <button class="btn" style="margin-top:8px;width:100%" onclick="HP=3650;exportXLSX();HP=7">📊 Exportar tudo para Excel</button>
@@ -673,8 +683,8 @@ function editIns(id,pk){const pr=pk!=null&&pk!==''?PRESETS[pk]:{};const i=id?ins
   modal(`<h2>${id?'Editar':'Nova'} insulina ${xBtn}</h2>${id?'':`<div class="sm mut">Atalhos (só preenchem nome e tipo):</div><div class="chips" style="margin:6px 0">${PRESETS.map((p,k)=>`<button class="chip" onclick="editIns(null,${k})">${esc(p.nome)}</button>`).join('')}</div>`}<label>Nome</label><input id="iN" value="${esc(i.nome)}" placeholder="ex.: Lispro, Glargina…">
   <div class="grid2"><div><label>Tipo</label><select id="iT"><option value="bolus" ${i.tipo==='bolus'?'selected':''}>Rápida (calculadora)</option><option value="basal" ${i.tipo==='basal'?'selected':''}>Basal / dose fixa</option></select></div>
   <div><label>Cor</label><input id="iC" type="color" value="${i.cor}" style="height:46px;padding:4px"></div></div>
-  <label>Duração da ação (horas)</label><input id="iD" inputmode="decimal" value="${fmt(i.duracao,1)}"><div class="sm mut">Só importa para insulinas rápidas: estima quanto ainda está agindo. Referência comum: Regular 5–8 h; ultrarrápidas 3–5 h.</div>
-  <div class="sm b" style="margin-top:12px">Doses fixas por momento (vazio = nenhuma)</div><div class="sm mut">Use para insulinas de dose fixa receitada (ex.: basal). Elas aparecem no painel “Hoje” com o botão “tomei”.</div>
+  <label>Duração da ação (horas)${aj('Só importa para insulinas rápidas: estima quanto ainda está agindo. Referência comum: Regular 5–8 h; ultrarrápidas 3–5 h.')}</label><input id="iD" inputmode="decimal" value="${fmt(i.duracao,1)}">
+  <div class="sm b" style="margin-top:12px">Doses fixas por momento (vazio = nenhuma)${aj('Use para insulinas de dose fixa receitada (ex.: basal). Elas aparecem no painel “Hoje” para marcar como tomada.')}</div>
   ${S.refeicoes.length?'':'<div class="sm mut" style="margin:6px 0">Você ainda não cadastrou momentos do dia — cadastre-os para poder informar doses fixas.</div>'}
   ${refsOrd().map(r=>`<div class="setrow"><div class="t">${esc(r.nome)}</div><input data-fx="${r.id}" inputmode="decimal" value="${num(i.fixas?.[r.id])>0?fmt(i.fixas[r.id],1):''}" placeholder="UI"></div>`).join('')}
   <div class="sm b" style="margin-top:12px">Estoque (opcional)</div>
@@ -733,15 +743,17 @@ function wzNav(d){if(WZ===0&&d>0){const o=(id,k)=>{const s=$(id).value.trim();S.
 
 // ===================== LEITURA DE RÓTULO (OCR no próprio aparelho) =====================
 const OCR_V='5.1.1',OCR_CDN='https://cdn.jsdelivr.net/npm/';const ocrLoc=p=>new URL(p,location.href).href;
-let _tessP=null,_ocrWorker=null,_ocrProg=null;
+let _tessP=null,_ocrWorker=null,_ocrProg=null,_ocrErro=null;
+const comPrazo=(p,ms,msg)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(msg)),ms))]);
 function carregaTess(){if(window.Tesseract)return Promise.resolve();if(_tessP)return _tessP;
   _tessP=new Promise((res,rej)=>{const s=document.createElement('script');s.src=window.OCR_LOCAL?ocrLoc('ocr/tesseract.min.js'):OCR_CDN+'tesseract.js@'+OCR_V+'/dist/tesseract.min.js';
     s.onload=res;s.onerror=()=>{_tessP=null;s.remove();rej(new Error('rede'));};document.head.appendChild(s);});return _tessP;}
 async function workerOCR(){await carregaTess();if(_ocrWorker)return _ocrWorker;
-  _ocrWorker=await Tesseract.createWorker('por',1,window.OCR_LOCAL?{workerPath:ocrLoc('ocr/worker.min.js'),corePath:ocrLoc('ocr/core'),langPath:ocrLoc('ocr/lang'),cacheMethod:'none',
+  let w;try{w=await comPrazo(new Promise((res,rej)=>{_ocrErro=rej;Tesseract.createWorker('por',1,window.OCR_LOCAL?{workerPath:ocrLoc('ocr/worker.min.js'),corePath:ocrLoc('ocr/core'),langPath:ocrLoc('ocr/lang'),cacheMethod:'none',workerBlobURL:false,errorHandler:e=>{console.log('CB_OCR_ERRO '+(e&&e.message||e));_ocrErro&&_ocrErro(e);},
     logger:m=>{if(_ocrProg)_ocrProg(m);}}:{workerPath:OCR_CDN+'tesseract.js@'+OCR_V+'/dist/worker.min.js',
     corePath:OCR_CDN+'tesseract.js-core@'+OCR_V,langPath:OCR_CDN+'@tesseract.js-data/por/4.0.0_best_int',
-    logger:m=>{if(_ocrProg)_ocrProg(m);}});
+    logger:m=>{if(_ocrProg)_ocrProg(m);}}).then(res,rej);}),90000,'tempo');}catch(e){_ocrErro=null;console.log('CB_OCR_ERRO criar '+(e&&e.message||e));throw e;}
+  _ocrErro=null;_ocrWorker=w;
   await _ocrWorker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});return _ocrWorker;}
 
 // melhora a foto: tamanho bom para leitura, tons de cinza e contraste
@@ -788,17 +800,28 @@ async function lerRotulo(inp){const f=inp.files&&inp.files[0];inp.value='';if(!f
   try{const cv=await prepImagem(f);$('#ocrFoto').innerHTML=`<img src="${cv.toDataURL('image/jpeg',.6)}" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;margin-top:8px;background:#fff">`;
     _ocrProg=m=>{if(m.status==='recognizing text')st.innerHTML=`<b>Lendo o rótulo… ${Math.round(m.progress*100)}%</b>`;
       else if(/load|initializ/i.test(m.status))st.innerHTML='<b>Preparando o leitor…</b> (na primeira vez baixa ~4 MB)';};
-    const w=await workerOCR();const {data}=await w.recognize(cv);const R=parseRotulo(data.text);
+    const w=await workerOCR();const {data}=await comPrazo(w.recognize(cv),120000,'tempo');const R=parseRotulo(data.text);
     if(R.cP==null&&R.c100==null){st.innerHTML=`<div class="alert warn" style="margin:6px 0">Não consegui achar os carboidratos nessa foto. Tente de novo mais perto da tabela, com boa luz e sem reflexo — ou preencha à mão.</div>`+txtLido(R);return;}
     const g=R.porcao||100;$('#nG').value=fmt(g,1);$('#nU').value=R.un;$('#nC').value=fmt(R.cP!=null?R.cP:R.c100*g/100,1);
     if(!$('#nM').value.trim()||$('#nM').value==='porção')$('#nM').value=R.medida||(fmt(g,1)+' '+R.un);
     ['#nG','#nC','#nM'].forEach(s=>{$(s).style.outline='2px solid var(--warn)';});
     st.innerHTML=`<div class="alert ${R.conf==='alta'?'info':'warn'}" style="margin:6px 0">${R.conf==='alta'?'✓ Li a tabela.':'⚠️ Li a tabela, mas confira com atenção.'} Porção <b>${fmt(g,1)} ${R.un}</b>${R.medida?' ('+esc(R.medida)+')':''} · carboidratos <b>${fmt(R.cP!=null?R.cP:R.c100*g/100,1)} g</b>${R.c100!=null?` (${fmt(R.c100,1)} g em 100 ${R.un})`:''}${R.fibra!=null?` · fibras ${fmt(R.fibra,1)} g`:''}${R.acucar!=null?` · açúcares ${fmt(R.acucar,1)} g`:''}.<br>Confira os campos destacados, coloque o nome e salve.</div>`+txtLido(R);
     if(!$('#nN').value.trim())$('#nN').focus();}
-  catch(e){st.innerHTML=`<div class="alert warn" style="margin:6px 0">${e&&e.message==='rede'?'Para ler a foto pela primeira vez é preciso internet (o leitor é baixado uma vez, ~4 MB). Depois disso funciona normalmente.':'Não consegui ler essa imagem. Tente outra foto ou preencha à mão.'}</div>`;}
+  catch(e){st.innerHTML=`<div class="alert warn" style="margin:6px 0">${e&&e.message==='tempo'?'O leitor demorou demais para responder. Feche o app, abra de novo e tente outra vez — ou preencha à mão.':e&&e.message==='rede'?'Para ler a foto pela primeira vez é preciso internet (o leitor é baixado uma vez, ~4 MB). Depois disso funciona normalmente.':'Não consegui ler essa imagem. Tente outra foto ou preencha à mão.'}</div>`;}
   finally{_ocrProg=null;}}
 const txtLido=R=>`<details style="margin-top:4px"><summary class="sm mut" style="cursor:pointer">Ver o texto que o app leu</summary><pre style="white-space:pre-wrap;font-size:12px;background:var(--card2);padding:8px;border-radius:8px;max-height:200px;overflow:auto">${esc(R.texto)}</pre></details>`;
 function fotoRotulo(){novoAlimento(true);const i=$('#fFoto');if(i)i.click();}
+
+// diagnóstico: lê uma imagem de teste gerada no próprio aparelho
+async function testeOCR(){const st=$('#ocrTeste');if(st)st.innerHTML='Testando o leitor…';const t0=Date.now();
+  try{const cv=document.createElement('canvas');cv.width=900;cv.height=260;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,900,260);g.fillStyle='#000';g.font='bold 44px sans-serif';
+    g.fillText('Porção 30 g',30,80);g.fillText('Carboidratos (g)   21',30,160);g.fillText('Proteínas (g)   1,6',30,235);
+    _ocrProg=m=>{if(st)st.innerHTML='Testando o leitor… '+esc(m.status)+(m.progress?' '+Math.round(m.progress*100)+'%':'');};
+    const w=await workerOCR();const {data}=await comPrazo(w.recognize(cv),60000,'tempo');const ok=/21/.test(data.text)&&/carbo/i.test(data.text);
+    const msg=(ok?'✅ Leitor OK':'⚠️ Leitor respondeu, mas leu diferente')+' ('+((Date.now()-t0)/1000).toFixed(1)+' s)';console.log('CB_OCR '+msg+' | '+data.text.replace(/\s+/g,' ').slice(0,80));
+    if(st)st.innerHTML=esc(msg);}
+  catch(e){const msg='❌ Leitor falhou: '+(e&&e.message||e);console.log('CB_OCR '+msg);if(st)st.innerHTML=esc(msg);}
+  finally{_ocrProg=null;}}
 
 // ===================== RELATÓRIO PROFISSIONAL (HTML para ver, imprimir/PDF e compartilhar) =====================
 const RC={low:'#7c3aed',ok:'#15803d',hi:'#f59e0b',vhi:'#b91c1c'},RN={low:'Baixa',ok:'No alvo',hi:'Alta',vhi:'Muito alta'};
@@ -953,7 +976,7 @@ function abrirRelatorio(){RP.dias=HP===1?7:HP;modal(`<h2>📄 Relatório complet
   <div class="setrow"><div class="t">Incluir diário detalhado (dia a dia)</div><label class="sw"><input type="checkbox" ${RP.tabela?'checked':''} onchange="RP.tabela=this.checked"><span></span></label></div>
   <div class="grid2" style="margin-top:12px"><button class="btn pri" onclick="relAcao('ver')">👁️ Ver</button><button class="btn" onclick="relAcao('share')">↗ Compartilhar</button></div>
   <button class="btn full" style="margin-top:8px" onclick="relAcao('baixar')">⬇ Baixar arquivo</button>
-  <div class="sm mut" style="margin-top:8px">Para PDF: abra em “Ver” e toque em “Imprimir / salvar PDF”, ou abra o arquivo baixado no navegador e use Imprimir → Salvar como PDF.</div>`);}
+  <div class="sm mut" style="margin-top:8px;text-align:right">Como salvar em PDF${aj("Para PDF: abra em “Ver” e toque em “Imprimir / salvar PDF”, ou abra o arquivo baixado no navegador e use Imprimir → Salvar como PDF.")}</div>`);}
 function relAcao(a){const nome=$('#rpNome').value.trim();if(nome!==(S.config.nome||'')){S.config.nome=nome;save();}
   const o={dias:RP.dias,nome,tabela:RP.tabela},nomeArq='relatorio-controlbetico-'+diaKey(Date.now())+'.html';
   if(a==='ver'){const html=gerarRelatorioHTML({...o,barra:true});fecha();
@@ -1425,11 +1448,11 @@ function avisoApk(u,manual){if(!manual&&Date.now()-(+localStorage.getItem('cb_ap
   <ol class="sm" style="line-height:1.6;padding-left:18px"><li>Toque em <b>Baixar</b> e espere o download terminar.</li><li>Abra o arquivo baixado e toque em <b>Instalar</b> (ou “Atualizar”).</li></ol>
   <button class="btn pri" style="width:100%;margin-top:8px" onclick="window.open('${esc(u.apk)}','_system');fecha()">⬇️ Baixar nova versão</button>`);}
 function secaoAtualizaHTML(){const pronta=localStorage.getItem('cb_upd_pronta');
-  return `<details class="card"><summary>⬆️ Atualizações</summary>
+  return `<details class="card"><summary>⬆️ Atualizações${aj('O app procura atualizações sozinho quando você abre e aplica na próxima abertura. Seus dados não são afetados.')}</summary>
    <div class="calcline"><span>Versão instalada</span><b>${esc(VER.versao)}</b></div>
    ${pronta&&cmpVer(pronta,VER.versao)>0?`<div class="sm" style="color:var(--ok)">Versão ${esc(pronta)} já baixada — feche e abra o app para usar.</div>`:''}
-   <div class="sm mut" style="margin:6px 0">O app procura atualizações sozinho quando você abre e instala na próxima abertura. Seus dados não são afetados.</div>
-   <button class="btn" style="width:100%" onclick="verificaAtualizacao(true)">🔄 Procurar atualização agora</button></details>`;}
+   <button class="btn" style="width:100%" onclick="verificaAtualizacao(true)">🔄 Procurar atualização agora</button>
+   <button class="btn" style="width:100%;margin-top:8px" onclick="testeOCR()">🧪 Testar leitor de rótulo</button><div id="ocrTeste" class="sm mut" style="margin-top:6px"></div></details>`;}
 function iniciaAtualizacao(){if(!NAT||!CBN.Updater)return;
   try{CBN.Updater.notifyAppReady();}catch(e){}
   console.log('CB_VERSAO='+VER.versao+' nativo='+VER.nativo);
