@@ -1,0 +1,5 @@
+CB_VERSAO=1.0.41 nativo=3
+CB_UPD remoto=1.0.43 nativo=4 | local=1.0.41 nativo=3
+CB_VERSAO=1.0.41 nativo=3
+CB_UPD remoto=1.0.43 nativo=4 | local=1.0.41 nativo=3
+ATUALIZOU_SOZINHO=nao
