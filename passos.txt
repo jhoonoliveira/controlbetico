@@ -1,0 +1,6 @@
+OK: Usar sem conta Google
+OK: OK
+OK: Agora não
+OK: Ajustes
+OK: Atualizações
+OK: Versão instalada
