@@ -59,6 +59,7 @@ input.big{font-size:30px;font-weight:700;text-align:center;padding:12px}
 .stepper{display:flex;align-items:center;gap:8px}.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:22px;cursor:pointer}.stepper input{text-align:center;font-weight:700}
 .aj{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;min-width:18px;border-radius:50%;border:1px solid var(--mut);color:var(--mut);background:none;font:700 11px/1 system-ui,sans-serif;padding:0;margin:0 0 0 6px;vertical-align:middle;opacity:.7;cursor:pointer}.aj:active{opacity:1}
 .ajpop{position:fixed;z-index:90;background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.updbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1e3a8a;color:#fff;font-size:14px}.updbar .btn{padding:6px 10px;min-height:0}
 .toast{position:fixed;left:50%;bottom:calc(90px + var(--sb));transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-size:14px;opacity:0;transition:.25s;pointer-events:none;max-width:90%}
 .toast.on{opacity:1}
 .sw{position:relative;width:46px;height:26px;flex:0 0 46px}.sw input{opacity:0;width:0;height:0}.sw span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s;cursor:pointer}.sw span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}.sw input:checked+span{background:var(--pri)}.sw input:checked+span:before{transform:translateX(20px)}
@@ -1436,31 +1437,45 @@ async function ativaBio(el){if(!el.checked){S.seguranca.bio=false;save();return;
 const URL_ATUALIZA='https://github.com/jhoonoliveira/controlbetico/releases/latest/download/atualizacao.json';
 const VER=window.CBVER||{versao:'0',nativo:0};
 const cmpVer=(a,b)=>{a=String(a).split('.').map(Number);b=String(b).split('.').map(Number);for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d;}return 0;};
-let _updRodando=false;
-async function verificaAtualizacao(manual){if(!NAT||!CBN.Updater||_updRodando)return;
-  if(!manual&&Date.now()-(+localStorage.getItem('cb_upd_chk')||0)<3*3600e3)return;
+let _updRodando=false,_updDepois=false;
+// procura sempre a versão mais nova (cada pacote é completo: pula as intermediárias sem problema)
+async function verificaAtualizacao(manual,abertura){if(!NAT||!CBN.Updater||_updRodando)return;
+  if(!manual&&!abertura&&Date.now()-(+localStorage.getItem('cb_upd_chk')||0)<60e3)return;
   if(!navigator.onLine){if(manual)toast('Sem internet agora');return;}
   _updRodando=true;localStorage.setItem('cb_upd_chk',Date.now());
   try{const r=await fetch(URL_ATUALIZA+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('http '+r.status);const u=await r.json();
     console.log('CB_UPD remoto='+u.versao+' nativo='+u.nativo+' | local='+VER.versao+' nativo='+VER.nativo);
     if(num(u.nativo)>num(VER.nativo)){avisoApk(u,manual);return;}
     if(cmpVer(u.versao,VER.versao)<=0){if(manual)toast('✓ Você já está na versão mais recente ('+VER.versao+')');return;}
-    if(manual)toast('Baixando a versão '+u.versao+'…');
-    const b=await CBN.Updater.download({url:u.zip,version:u.versao,checksum:u.sha256});
-    console.log('CB_UPD baixado '+b.id+' '+b.version);
-    if(manual){toast('Atualizando…');setTimeout(()=>CBN.Updater.set({id:b.id}),700);return;}
-    await CBN.Updater.next({id:b.id});localStorage.setItem('cb_upd_pronta',u.versao);localStorage.setItem('cb_upd_id',b.id);
-    toast('✓ Atualização '+u.versao+' baixada — entra na próxima vez que abrir o app');}
+    let id=localStorage.getItem('cb_upd_pronta')===u.versao?localStorage.getItem('cb_upd_id'):null;
+    if(id){try{const l=await CBN.Updater.list();if(!(l.bundles||[]).some(b=>b.id===id))id=null;}catch(e){}}
+    if(!id){if(manual)toast('Baixando a versão '+u.versao+'…');
+      const b=await CBN.Updater.download({url:u.zip,version:u.versao,checksum:u.sha256});id=b.id;console.log('CB_UPD baixado '+b.id+' '+b.version);
+      localStorage.setItem('cb_upd_pronta',u.versao);localStorage.setItem('cb_upd_id',id);}
+    localStorage.setItem('cb_upd_notas',JSON.stringify(u.historico||[]));
+    if(manual)return aplicaAtualizacao();
+    if(!_updDepois)bannerAtualizacao();}
   catch(e){console.log('CB_UPD_ERRO '+(e&&e.message||e));if(manual)toast('Não consegui verificar agora. Tente mais tarde.');}
   finally{_updRodando=false;}}
+function notasNovas(){let h=[];try{h=JSON.parse(localStorage.getItem('cb_upd_notas')||'[]');}catch(e){}
+  return h.filter(x=>x&&x.nota&&cmpVer(x.versao,VER.versao)>0);}
+function bannerAtualizacao(){const v=localStorage.getItem('cb_upd_pronta');if(!v||cmpVer(v,VER.versao)<=0)return;
+  let b=document.getElementById('updBar');if(!b){b=document.createElement('div');b.id='updBar';b.className='updbar';const h=document.querySelector('header');h.parentNode.insertBefore(b,h.nextSibling);}
+  const n=notasNovas();
+  b.innerHTML=`<span style="flex:1">⬆️ Nova versão <b>${esc(v)}</b> pronta${n.length?` <a href="#" onclick="verNovidades();return false" style="color:inherit;text-decoration:underline">o que mudou</a>`:''}</span>
+   <button class="btn sm pri" onclick="aplicaAtualizacao()">Atualizar</button><button class="btn sm" onclick="_updDepois=true;document.getElementById('updBar').remove()">Agora não</button>`;}
+function verNovidades(){const n=notasNovas();modal(`<h2>O que mudou ${xBtn}</h2>${n.length?`<ul style="padding-left:18px;line-height:1.5">${n.map(x=>`<li><b>${esc(x.versao)}</b> — ${esc(x.nota)}</li>`).join('')}</ul>`:'<p class="mut">Melhorias e correções.</p>'}
+  <button class="btn pri full" style="margin-top:8px" onclick="fecha();aplicaAtualizacao()">Atualizar agora</button>`);}
+async function aplicaAtualizacao(){const id=localStorage.getItem('cb_upd_id');if(!id){verificaAtualizacao(true);return;}
+  toast('Atualizando…');try{await CBN.Updater.set({id});}catch(e){console.log('CB_UPD_ERRO set '+(e&&e.message||e));localStorage.removeItem('cb_upd_id');localStorage.removeItem('cb_upd_pronta');toast('Não consegui aplicar — vou baixar de novo');verificaAtualizacao(true);}}
 function avisoApk(u,manual){if(!manual&&Date.now()-(+localStorage.getItem('cb_apk_aviso')||0)<20*3600e3)return;localStorage.setItem('cb_apk_aviso',Date.now());
   modal(`<h2>⬆️ Nova versão do app ${xBtn}</h2><p>A versão <b>${esc(u.versao)}</b> traz mudanças que precisam de uma instalação rápida (seus dados continuam no celular).</p>
   <ol class="sm" style="line-height:1.6;padding-left:18px"><li>Toque em <b>Baixar</b> e espere o download terminar.</li><li>Abra o arquivo baixado e toque em <b>Instalar</b> (ou “Atualizar”).</li></ol>
   <button class="btn pri" style="width:100%;margin-top:8px" onclick="window.open('${esc(u.apk)}','_system');fecha()">⬇️ Baixar nova versão</button>`);}
 function secaoAtualizaHTML(){const pronta=localStorage.getItem('cb_upd_pronta');
-  return `<details class="card"><summary>⬆️ Atualizações${aj('O app procura atualizações sozinho quando você abre e aplica na próxima abertura. Seus dados não são afetados.')}</summary>
+  return `<details class="card"><summary>⬆️ Atualizações${aj('Sempre que você abre o app ele procura a versão mais nova e baixa sozinho. Depois pergunta se quer atualizar na hora — se disser “Agora não”, pergunta de novo na próxima vez. Se saírem várias versões, ele vai direto para a última. Seus dados não são afetados.')}</summary>
    <div class="calcline" onclick="toqueVersao()"><span>Versão instalada</span><b>${esc(VER.versao)}</b></div>
-   ${pronta&&cmpVer(pronta,VER.versao)>0?`<div class="sm" style="color:var(--ok)">Versão ${esc(pronta)} já baixada — feche e abra o app para usar.</div>`:''}
+   ${pronta&&cmpVer(pronta,VER.versao)>0?`<button class="btn pri full" style="margin-bottom:8px" onclick="aplicaAtualizacao()">⬆️ Atualizar para ${esc(pronta)}</button>`:''}
    <button class="btn" style="width:100%" onclick="verificaAtualizacao(true)">🔄 Procurar atualização agora</button>
 </details>`;}
 // diagnóstico escondido: 5 toques rápidos em "Versão instalada" testam o leitor de rótulo
@@ -1470,10 +1485,9 @@ function iniciaAtualizacao(){if(!NAT||!CBN.Updater)return;
   console.log('CB_VERSAO='+VER.versao+' nativo='+VER.nativo);
   const vista=localStorage.getItem('cb_ver_vista');if(vista&&vista!==VER.versao&&cmpVer(VER.versao,vista)>0)setTimeout(()=>toast('✅ App atualizado para a versão '+VER.versao),1200);
   localStorage.setItem('cb_ver_vista',VER.versao);
-  const pr=localStorage.getItem('cb_upd_pronta'),pid=localStorage.getItem('cb_upd_id');
+  const pr=localStorage.getItem('cb_upd_pronta');
   if(pr&&cmpVer(pr,VER.versao)<=0){localStorage.removeItem('cb_upd_pronta');localStorage.removeItem('cb_upd_id');}
-  else if(pr&&pid&&!localStorage.getItem('cb_upd_tentou_'+pr)){localStorage.setItem('cb_upd_tentou_'+pr,'1');console.log('CB_UPD aplicando '+pr);CBN.Updater.set({id:pid}).catch(e=>console.log('CB_UPD_ERRO set '+(e&&e.message||e)));return;}
-  setTimeout(()=>verificaAtualizacao(false),5000);
+  setTimeout(()=>{bannerAtualizacao();verificaAtualizacao(false,true);},1500);
   CBN.App.addListener('resume',()=>verificaAtualizacao(false));}
 
 // ---------- start ----------
